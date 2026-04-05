@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QAOA Scheduler — Quantum</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f5f0;
+    --white: #ffffff;
+    --border: #ddddd8;
+    --text: #1a1a1a;
+    --muted: #888884;
+    --accent: #0047ff;
+    --green: #00a651;
+    --orange: #ff6200;
+    --red: #d00000;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'IBM Plex Sans', sans-serif; min-height: 100vh; }
+
+  /* ── Header ── */
+  .header {
+    background: var(--white);
+    border-bottom: 2px solid var(--text);
+    padding: 18px 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .header-left { display: flex; align-items: baseline; gap: 16px; }
+  .header h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+  .header .ver { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); }
+  .header-right { display: flex; align-items: center; gap: 20px; }
+  .gh-link {
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+    color: var(--muted); text-decoration: none;
+    border: 1px solid var(--border); padding: 5px 10px;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .gh-link:hover { color: var(--text); border-color: var(--text); }
+  .gh-link svg { flex-shrink: 0; }
+
+  /* ── Layout ── */
+  .main { display: grid; grid-template-columns: 320px 1fr; min-height: calc(100vh - 61px); }
+
+  /* ── Sidebar ── */
+  .sidebar { background: var(--white); border-right: 1px solid var(--border); padding: 28px 24px; overflow-y: auto; }
+
+  .section-label {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 10px;
+  }
+
+  .about-box {
+    background: var(--bg); border: 1px solid var(--border);
+    padding: 12px 14px; margin-bottom: 24px;
+    font-size: 12px; color: var(--muted); line-height: 1.6;
+  }
+  .about-box strong { color: var(--text); }
+
+  .job-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0; border-bottom: 1px solid var(--border);
+  }
+  .job-row:last-of-type { border-bottom: none; }
+  .job-name { font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; }
+  .job-spec { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .job-desc { font-size: 10px; color: var(--muted); margin-top: 2px; font-style: italic; }
+
+  input[type="number"] {
+    width: 56px; border: 1px solid var(--border); background: var(--bg);
+    font-family: 'IBM Plex Mono', monospace; font-size: 14px;
+    padding: 6px 8px; text-align: center; outline: none;
+    transition: border-color 0.15s;
+  }
+  input[type="number"]:focus { border-color: var(--accent); }
+
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+
+  .servers-control { margin-bottom: 20px; }
+  .servers-control .section-label { margin-bottom: 10px; }
+  .server-desc { font-size: 11px; color: var(--muted); margin-bottom: 10px; line-height: 1.5; }
+  .servers-row { display: flex; align-items: center; gap: 12px; }
+  input[type="range"] {
+    -webkit-appearance: none; flex: 1; height: 3px;
+    background: var(--border); outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 16px;
+    background: var(--accent); border-radius: 50%; cursor: pointer;
+  }
+  .range-num { font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 600; color: var(--accent); min-width: 24px; }
+
+  .run-btn {
+    width: 100%; background: var(--text); color: var(--white); border: none;
+    padding: 14px; font-family: 'IBM Plex Sans', sans-serif; font-size: 14px;
+    font-weight: 600; cursor: pointer; letter-spacing: 0.05em;
+    transition: background 0.15s;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+  }
+  .run-btn:hover { background: var(--accent); }
+  .run-btn:disabled { background: var(--muted); cursor: not-allowed; }
+  .spinner { width: 14px; height: 14px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; display: none; }
+  .run-btn.loading .spinner { display: block; }
+
+  .var-box {
+    margin-top: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+    padding: 10px; background: var(--bg); border: 1px solid var(--border);
+  }
+  .var-box-desc { font-size: 10px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+
+  /* ── Content ── */
+  .content { padding: 32px 40px; }
+
+  .page-desc {
+    background: var(--white); border: 1px solid var(--border);
+    padding: 20px 24px; margin-bottom: 28px;
+    font-size: 13px; line-height: 1.7; color: #444;
+  }
+  .page-desc strong { color: var(--text); }
+  .page-desc .tag {
+    display: inline-block; font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; background: var(--bg); border: 1px solid var(--border);
+    padding: 2px 7px; margin-right: 4px; vertical-align: middle;
+  }
+
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 50vh; color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace; font-size: 13px; gap: 8px;
+  }
+  .empty-state .big { font-size: 48px; opacity: 0.15; }
+
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+  .stat-box { background: var(--white); border: 1px solid var(--border); padding: 20px; }
+  .stat-box .label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
+  .stat-box .value { font-size: 28px; font-weight: 600; letter-spacing: -0.03em; }
+  .stat-box .unit { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); }
+  .stat-box .stat-desc { font-size: 10px; color: var(--muted); margin-top: 6px; line-height: 1.4; }
+  .stat-box.blue .value { color: var(--accent); }
+  .stat-box.green .value { color: var(--green); }
+  .stat-box.orange .value { color: var(--orange); }
+
+  .chart-title { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  .chart-desc { font-size: 11px; color: var(--muted); margin-bottom: 16px; line-height: 1.5; }
+  .bar-chart { background: var(--white); border: 1px solid var(--border); padding: 24px; margin-bottom: 24px; }
+  .bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .bar-row:last-child { margin-bottom: 0; }
+  .bar-name { font-family: 'IBM Plex Mono', monospace; font-size: 11px; width: 120px; color: var(--muted); }
+  .bar-track { flex: 1; height: 20px; background: var(--bg); }
+  .bar-fill { height: 100%; background: var(--accent); transition: width 0.6s cubic-bezier(0.16,1,0.3,1); width: 0; }
+  .bar-fill.green { background: var(--green); }
+  .bar-fill.orange { background: var(--orange); }
+  .bar-val { font-family: 'IBM Plex Mono', monospace; font-size: 11px; min-width: 70px; text-align: right; }
+
+  .timeline-wrap { background: var(--white); border: 1px solid var(--border); }
+  .timeline-head { padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: baseline; gap: 12px; }
+  .timeline-head-title { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+  .timeline-head-desc { font-size: 11px; color: var(--muted); }
+  .timeline-body { max-height: 300px; overflow-y: auto; font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+  .tl-line { padding: 7px 20px; border-bottom: 1px solid var(--bg); line-height: 1.5; }
+  .tl-line.assign { color: var(--accent); }
+  .tl-line.complete { color: var(--muted); }
+  .tl-line.arrival { color: var(--green); }
+  .tl-line.warn { color: var(--orange); }
+
+  .error-box { background: #fff0f0; border: 1px solid var(--red); color: var(--red); padding: 14px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; margin-top: 16px; }
+
+  #results { display: none; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>QAOA Job Scheduler</h1>
+    <span class="ver">v8.0 // scipy MILP + numpy + classical fallback</span>
+  </div>
+  <div class="header-right">
+    <a class="gh-link" href="https://github.com/pecopeco1582-commits" target="_blank" rel="noopener">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+      </svg>
+      pecopeco1582-commits
+    </a>
+  </div>
+</div>
+
+<div class="main">
+  <div class="sidebar">
+
+    <div class="section-label">About</div>
+    <div class="about-box">
+      A <strong>quantum-inspired bin-packing scheduler</strong> that assigns cloud jobs to servers
+      using a MILP optimiser. Formulates the problem as a
+      <strong>Quadratic Program</strong> (binary variables, linear constraints)
+      and solves for the minimum number of active servers.
+    </div>
+
+    <div class="section-label">Workload Types</div>
+
+    <div class="job-row">
+      <div>
+        <div class="job-name">web_api</div>
+        <div class="job-spec">1c · 1 GB · 5 s</div>
+        <div class="job-desc">Short-lived HTTP request handler</div>
+      </div>
+      <input type="number" id="web_api" value="3" min="0" max="50">
+    </div>
+    <div class="job-row">
+      <div>
+        <div class="job-name">batch</div>
+        <div class="job-spec">2c · 2 GB · 300 s</div>
+        <div class="job-desc">Long-running CPU-intensive task</div>
+      </div>
+      <input type="number" id="batch" value="1" min="0" max="50">
+    </div>
+    <div class="job-row">
+      <div>
+        <div class="job-name">memory</div>
+        <div class="job-spec">1c · 3 GB · 60 s</div>
+        <div class="job-desc">In-memory data processing job</div>
+      </div>
+      <input type="number" id="memory" value="0" min="0" max="50">
+    </div>
+    <div class="job-row">
+      <div>
+        <div class="job-name">io_heavy</div>
+        <div class="job-spec">1c · 1 GB · 180 s</div>
+        <div class="job-desc">High-throughput NVMe / network I/O</div>
+      </div>
+      <input type="number" id="io_heavy" value="0" min="0" max="50">
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="servers-control">
+      <div class="section-label">Server Count</div>
+      <div class="server-desc">
+        Each server has <strong>2 vCPUs</strong>, <strong>4 GB RAM</strong>,
+        <strong>40 GB NVMe</strong> and <strong>10 Gbps</strong> bandwidth.
+        The solver finds the minimum number of servers needed.
+      </div>
+      <div class="servers-row">
+        <input type="range" id="servers" min="1" max="10" value="3"
+               oninput="document.getElementById('sval').textContent=this.value; updateVarIndicator()">
+        <span class="range-num" id="sval">3</span>
+      </div>
+    </div>
+
+    <button class="run-btn" id="run-btn" onclick="run()">
+      <div class="spinner"></div>
+      <span>Execute QAOA</span>
+    </button>
+
+    <div class="var-box">
+      <div style="color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; font-size:10px; margin-bottom:4px;">Binary Variables</div>
+      <div id="var-count" style="font-size:18px; font-weight:600;">—</div>
+      <div id="var-bar-track" style="height:4px; background:var(--border); margin-top:6px;">
+        <div id="var-bar-fill" style="height:100%; width:0%; background:var(--green); transition:width 0.3s;"></div>
+      </div>
+      <div class="var-box-desc">
+        Variables = (jobs × servers) + servers. The MILP solver handles
+        up to 100 vars without any degradation.
+      </div>
+    </div>
+
+    <div id="error-container"></div>
+  </div>
+
+  <div class="content">
+
+    <div class="page-desc">
+      This tool demonstrates a <strong>quantum-inspired optimisation approach</strong> to cloud resource scheduling.
+      It formulates job-to-server assignment as a binary optimisation problem and solves it using
+      <span class="tag">scipy.milp</span> (exact MILP), falling back to
+      <span class="tag">numpy brute-force</span> or a
+      <span class="tag">classical greedy</span> scheduler if needed.
+      The objective is to <strong>minimise active servers</strong> while respecting CPU, RAM, NVMe and bandwidth constraints.
+    </div>
+
+    <div class="empty-state" id="empty">
+      <div class="big">◎</div>
+      <div>Configure workloads and click Execute QAOA</div>
+    </div>
+
+    <div id="results">
+      <div class="stats-row">
+        <div class="stat-box blue">
+          <div class="label">Makespan</div>
+          <div class="value" id="s-makespan">—</div>
+          <div class="unit">minutes</div>
+          <div class="stat-desc">Total wall-clock time for all jobs to complete across servers.</div>
+        </div>
+        <div class="stat-box orange">
+          <div class="label">Peak Util.</div>
+          <div class="value" id="s-peak">—</div>
+          <div class="unit">% cores</div>
+          <div class="stat-desc">Highest CPU utilisation observed on any single server.</div>
+        </div>
+        <div class="stat-box green">
+          <div class="label">Completed</div>
+          <div class="value" id="s-jobs">—</div>
+          <div class="unit">jobs</div>
+          <div class="stat-desc">Total number of jobs successfully assigned and scheduled.</div>
+        </div>
+        <div class="stat-box">
+          <div class="label">Solver</div>
+          <div class="value" id="s-solver" style="font-size:16px; padding-top:4px;">—</div>
+          <div class="unit">active servers</div>
+          <div class="stat-desc">Algorithm used to find the optimal assignment.</div>
+        </div>
+      </div>
+
+      <div class="bar-chart">
+        <div class="chart-title">Resource Utilization</div>
+        <div class="chart-desc">
+          Bars show how heavily each resource category is used relative to its capacity.
+          Makespan is normalised to a 60-minute ceiling.
+        </div>
+        <div class="bar-row">
+          <div class="bar-name">Peak Cores %</div>
+          <div class="bar-track"><div class="bar-fill" id="bar-cores"></div></div>
+          <div class="bar-val" id="bv-cores">—</div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-name">Makespan (min)</div>
+          <div class="bar-track"><div class="bar-fill green" id="bar-make"></div></div>
+          <div class="bar-val" id="bv-make">—</div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-name">Active Servers</div>
+          <div class="bar-track"><div class="bar-fill orange" id="bar-wait"></div></div>
+          <div class="bar-val" id="bv-wait">—</div>
+        </div>
+      </div>
+
+      <div class="timeline-wrap">
+        <div class="timeline-head">
+          <span class="timeline-head-title">Event Timeline</span>
+          <span class="timeline-head-desc">Step-by-step job assignment log from the solver.</span>
+        </div>
+        <div class="timeline-body" id="timeline"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function countJobs() {
+  return ['web_api','batch','memory','io_heavy']
+    .reduce((sum, k) => sum + (parseInt(document.getElementById(k).value) || 0), 0);
+}
+
+function updateVarIndicator() {
+  const J     = countJobs();
+  const S     = parseInt(document.getElementById('servers').value);
+  const total = J * S + S;
+  const pct   = Math.min((total / 100) * 100, 100);
+
+  const countEl = document.getElementById('var-count');
+  const fillEl  = document.getElementById('var-bar-fill');
+
+  countEl.textContent     = total > 0 ? `${total} vars` : '—';
+  fillEl.style.width      = pct + '%';
+  fillEl.style.background = pct > 75 ? 'var(--orange)' : 'var(--green)';
+  countEl.style.color     = pct > 75 ? 'var(--orange)' : 'var(--text)';
+}
+
+['web_api','batch','memory','io_heavy','servers'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updateVarIndicator);
+});
+updateVarIndicator();
+
+const SOLVER_LABELS = {
+  'qaoa':             { text: 'QAOA ✓',       color: 'var(--green)'  },
+  'qaoa_numpy':       { text: 'NumPy Exact ✓', color: 'var(--green)'  },
+  'scipy_milp':       { text: 'MILP Exact ✓',  color: 'var(--green)'  },
+  'cplex':            { text: 'CPLEX ✓',       color: 'var(--green)'  },
+  'classical_greedy': { text: 'Classical ↩',   color: 'var(--orange)' },
+};
+
+async function run() {
+  const btn = document.getElementById('run-btn');
+  btn.classList.add('loading'); btn.disabled = true;
+  document.getElementById('error-container').innerHTML = '';
+
+  const profile_counts = {};
+  ['web_api','batch','memory','io_heavy'].forEach(k => {
+    const v = parseInt(document.getElementById(k).value) || 0;
+    if (v > 0) profile_counts[k] = v;
+  });
+  const servers = parseInt(document.getElementById('servers').value);
+
+  if (!Object.keys(profile_counts).length) {
+    document.getElementById('error-container').innerHTML =
+      '<div class="error-box">Add at least one job.</div>';
+    btn.classList.remove('loading'); btn.disabled = false;
+    return;
+  }
+
+  try {
+    const res = await fetch('http://localhost:8000/schedule_quantum', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({profile_counts, servers})
+    });
+    if (!res.ok) {
+      const e = await res.json();
+      throw new Error(e.detail || JSON.stringify(e));
+    }
+    const data = await res.json();
+    render(data, servers);
+  } catch(e) {
+    document.getElementById('error-container').innerHTML =
+      `<div class="error-box">${e.message || 'Connection failed. Is uvicorn running?'}</div>`;
+  } finally {
+    btn.classList.remove('loading'); btn.disabled = false;
+    updateVarIndicator();
+  }
+}
+
+function render(data, totalServers) {
+  const s = data.stats;
+
+  document.getElementById('s-makespan').textContent = (s.makespan / 60).toFixed(2);
+  document.getElementById('s-peak').textContent     = s.peak_utilization_pct.toFixed(1);
+  document.getElementById('s-jobs').textContent     = s.jobs_completed;
+
+  const solverEl = document.getElementById('s-solver');
+  const label    = SOLVER_LABELS[data.solver] || { text: data.solver, color: 'var(--orange)' };
+  solverEl.textContent = label.text;
+  solverEl.style.color = label.color;
+
+  const cp = Math.min(s.peak_utilization_pct, 100);
+  document.getElementById('bar-cores').style.width = cp + '%';
+  document.getElementById('bv-cores').textContent  = cp.toFixed(1) + '%';
+
+  const makespanMin = s.makespan / 60;
+  const mp = Math.min((makespanMin / 60) * 100, 100);
+  document.getElementById('bar-make').style.width = mp + '%';
+  document.getElementById('bv-make').textContent  = makespanMin.toFixed(2) + ' min';
+
+  const active = data.active_servers || 0;
+  const ap = Math.min((active / totalServers) * 100, 100);
+  document.getElementById('bar-wait').style.width = ap + '%';
+  document.getElementById('bv-wait').textContent  = `${active} / ${totalServers}`;
+
+  const tl = document.getElementById('timeline');
+  tl.innerHTML = '';
+  (data.timeline || []).forEach(line => {
+    const d = document.createElement('div');
+    d.className = 'tl-line';
+    if (line.includes('->') && !line.includes('fallback') && !line.includes('classical')) d.classList.add('assign');
+    else if (line.includes('Objective'))          d.classList.add('complete');
+    else if (line.includes('result:'))            d.classList.add('arrival');
+    else if (line.includes('unassigned') || line.includes('fallback') || line.includes('classical fallback')) d.classList.add('warn');
+    d.textContent = line;
+    tl.appendChild(d);
+  });
+
+  document.getElementById('empty').style.display   = 'none';
+  document.getElementById('results').style.display = 'block';
+}
+</script>
+</body>
+</html>
