@@ -466,6 +466,156 @@ def build_cloud_quadratic_program(servers: int, jobs: List[Dict[str, Any]]) -> T
     return qp, var_names
 
 
+def solve_binpack_qaoa(
+    qp,
+    jobs: List[Dict[str, Any]],
+    servers: int,
+    reps: int = 3,
+    maxiter: int = 300,
+    shots: int = 16384,
+) -> Optional[Dict[str, Any]]:
+    """Solve bin-packing via QAOA on a local quantum circuit simulator.
+
+    Pipeline:
+      QuadraticProgram -> QuadraticProgramToQubo -> QAOA (Sampler + SPSA)
+      -> decode bitstring -> server assignments
+
+    Uses QasmSimulator via Qiskit Sampler primitive (classical simulation of
+    quantum circuits — no real QPU required). SPSA optimizer scales to large
+    numbers of beta/gamma parameters without extra circuit evaluations.
+
+    Args:
+        qp: QuadraticProgram from build_cloud_quadratic_program().
+        jobs: List of job dicts.
+        servers: Number of servers in the problem.
+        reps: QAOA circuit depth p. Higher = better quality, slower simulation.
+        maxiter: SPSA optimizer iterations. More = better convergence.
+        shots: Measurement shots per circuit. Higher = less sampling noise.
+
+    Returns:
+        Dict with keys: server_usage, objective, active_servers, unplaced, status.
+        Returns None if required packages are unavailable or simulation fails.
+    """
+    # -- graceful imports --
+    try:
+        from qiskit_optimization.converters import QuadraticProgramToQubo  # type: ignore
+    except ImportError:
+        print("[QAOA] qiskit-optimization not available. Install: pip install qiskit-optimization")
+        return None
+    try:
+        from qiskit_algorithms import QAOA as _QAOA                        # type: ignore
+        from qiskit_algorithms.optimizers import SPSA as _SPSA             # type: ignore
+    except ImportError:
+        print("[QAOA] qiskit-algorithms not available. Install: pip install qiskit-algorithms")
+        return None
+    try:
+        from qiskit.primitives import Sampler as _Sampler                  # type: ignore
+    except ImportError:
+        print("[QAOA] qiskit.primitives not available. Install: pip install qiskit")
+        return None
+    try:
+        from qiskit_optimization.algorithms import MinimumEigenOptimizer as _MEO  # type: ignore
+    except ImportError:
+        print("[QAOA] MinimumEigenOptimizer not available.")
+        return None
+
+    import numpy as np
+
+    # Step 1: Convert QP -> QUBO
+    # QuadraticProgramToQubo absorbs all linear constraints into penalty terms,
+    # converting the constrained problem into an unconstrained binary polynomial
+    # that the quantum circuit can minimize directly.
+    print("[QAOA] Converting QuadraticProgram to QUBO...")
+    try:
+        converter = QuadraticProgramToQubo()
+        qubo = converter.convert(qp)
+    except Exception as exc:
+        print(f"[QAOA] QUBO conversion failed: {type(exc).__name__}: {exc}")
+        return None
+
+    n_qubits = qubo.get_num_vars()
+    print(f"[QAOA] QUBO size: {n_qubits} qubits (binary variables after constraint absorption)")
+    print(f"[QAOA] Circuit depth: p={reps} layers | Optimizer: SPSA maxiter={maxiter} | Shots: {shots}")
+    print(f"[QAOA] This is a classical simulation of a quantum circuit (no QPU needed).")
+
+    # Step 2: Linear ramp initialization for beta/gamma angles.
+    # Ramps gamma up and beta down across layers — shown by the 2025 transfer
+    # learning paper to converge faster than random initialization.
+    initial_point = np.zeros(2 * reps)
+    for k in range(reps):
+        initial_point[k] = (k + 1) / (reps + 1) * 0.5            # gamma_k: ramps up
+        initial_point[reps + k] = (1 - (k + 1) / (reps + 1)) * 0.5  # beta_k: ramps down
+
+    # Step 3: Build QAOA circuit with Sampler primitive (QasmSimulator backend)
+    # and SPSA optimizer. SPSA uses exactly 2 circuit evaluations per iteration
+    # regardless of parameter count — ideal for large reps values.
+    try:
+        sampler = _Sampler()
+        sampler.set_options(shots=shots)
+    except Exception:
+        sampler = _Sampler()
+
+    spsa = _SPSA(maxiter=maxiter)
+    qaoa = _QAOA(sampler=sampler, optimizer=spsa, reps=reps, initial_point=initial_point)
+
+    # Step 4: Solve. MinimumEigenOptimizer wraps QAOA and handles the
+    # Ising Hamiltonian encoding internally (Z-operator substitution for
+    # each binary variable).
+    print(f"[QAOA] Running quantum circuit simulation...")
+    print(f"[QAOA] Expected time scales with 2^{n_qubits} internally — be patient for large problems.")
+    try:
+        optimizer_alg = _MEO(qaoa)
+        result = optimizer_alg.solve(qubo)
+    except MemoryError as mem_exc:
+        print(f"[QAOA] MemoryError: problem too large for local simulation ({n_qubits} qubits).")
+        print(f"[QAOA] Try fewer jobs/servers, or reduce reps.")
+        _log_memory_error("QAOA solve", mem_exc, extra={"n_qubits": n_qubits, "reps": reps, "shots": shots})
+        return None
+    except Exception as exc:
+        print(f"[QAOA] Simulation failed: {type(exc).__name__}: {exc}")
+        return None
+
+    # Step 5: Decode bitstring -> server assignments.
+    # result.x gives the best binary assignment found across all sampled bitstrings.
+    var_names_qubo = [v.name for v in qubo.variables]
+    assignment = {name: int(round(float(val))) for name, val in zip(var_names_qubo, result.x)}
+
+    server_usage = [
+        {'cores': 0, 'ram': 0.0, 'nvme': 0.0, 'bandwidth': 0.0, 'jobs': []}
+        for _ in range(servers)
+    ]
+    unplaced = []
+    for job in jobs:
+        jid = job['id']
+        placed = False
+        for s in range(servers):
+            if assignment.get(f"x_{jid}_{s}", 0) == 1:
+                su = server_usage[s]
+                su['cores'] += job.get('cores', 0)
+                su['ram'] += job.get('ram', 0.0)
+                su['nvme'] += job.get('nvme', 0.0)
+                su['bandwidth'] += job.get('bandwidth', 0.0)
+                su['jobs'].append(jid)
+                placed = True
+                break
+        if not placed:
+            unplaced.append(jid)
+
+    active_servers = sum(1 for su in server_usage if su['jobs'])
+    status_name = result.status.name if hasattr(result, 'status') else 'unknown'
+    print(f"[QAOA] Done. Active servers: {active_servers} | Objective: {result.fval:.4f} | Status: {status_name}")
+    if unplaced:
+        print(f"[QAOA] {len(unplaced)} job(s) unplaced (increase reps or maxiter for better coverage): {unplaced}")
+
+    return {
+        'server_usage': server_usage,
+        'objective': result.fval,
+        'active_servers': active_servers,
+        'unplaced': unplaced,
+        'status': status_name,
+    }
+
+
 def main() -> None:
     print("Cloud bin-packing QP builder")
     # prompt for servers
@@ -629,192 +779,67 @@ def main() -> None:
 
     print(f"\nTotal makespan: {best['makespan']:.2f} seconds")
 
-    # Attempt to solve the QP automatically using a safe, exact solver when available.
-    # Use NumPyMinimumEigensolver (exact classical diagonalization) only for very
-    # small problems to avoid statevector memory explosions. Fall back to the
-    # provided classical heuristics otherwise.
-    try:
-        # conservative variable limit: jobs * servers
-        total_vars = len(var_names)
-        max_safe = 8
-        print(f"\n[QP] Attempting to solve QP (vars={total_vars}). Max safe vars: {max_safe}.")
-        if total_vars > max_safe:
-            print(f"[QP] Problem too large for NumPyMinimumEigensolver (vars={total_vars} > {max_safe}). Using classical heuristics instead.")
-        else:
-            try:
-                from qiskit_algorithms.minimum_eigensolvers import NumPyMinimumEigensolver  # type: ignore
-                from qiskit_optimization.algorithms import MinimumEigenOptimizer  # type: ignore
-            except ImportError as e:
-                print(f"[QP] Qiskit solver import failed: {e}. Using classical heuristics.")
-            else:
-                # Before attempting to solve, ensure coefficients are integer-like.
-                def _is_int_like(x: float) -> bool:
-                    try:
-                        return abs(float(x) - round(float(x))) < 1e-9
-                    except Exception:
-                        return False
+    # --- QAOA Quantum Circuit Solver ---
+    # Runs entirely on your local CPU via Qiskit's classical quantum circuit
+    # simulator. No QPU or cloud account required.
+    #
+    # Tunable parameters:
+    #   reps    – QAOA circuit depth (p layers). More layers = better solution,
+    #             longer simulation. Start at 3, increase for harder instances.
+    #   maxiter – SPSA optimizer iterations. More = better angle convergence.
+    #   shots   – Measurement samples per circuit. More = less sampling noise.
+    #
+    # Qubit count = QUBO variables after constraint absorption (printed at runtime).
+    # Simulation time grows exponentially with qubit count; ~30 qubits is the
+    # practical limit on a standard laptop.
+    qaoa_reps = 3
+    qaoa_maxiter = 300
+    qaoa_shots = 16384
 
-                coeffs_ok = True
-                # check module-level server constants
-                for v in (CORES_PER_SERVER, RAM_PER_SERVER, NVME_PER_SERVER, BANDWIDTH_PER_SERVER):
-                    if not _is_int_like(v):
-                        coeffs_ok = False
-                        break
-                # check job coefficients
-                if coeffs_ok:
-                    for job in jobs:
-                        for f in ("cores", "ram", "nvme", "bandwidth"):
-                            if not _is_int_like(job.get(f, 0)):
-                                coeffs_ok = False
-                                break
-                        if not coeffs_ok:
-                            break
+    print(f"\n[QAOA] Starting QAOA quantum simulation (reps={qaoa_reps}, maxiter={qaoa_maxiter}, shots={qaoa_shots})...")
+    qaoa_result = solve_binpack_qaoa(
+        qp, jobs, servers,
+        reps=qaoa_reps,
+        maxiter=qaoa_maxiter,
+        shots=qaoa_shots,
+    )
 
-                if not coeffs_ok:
-                    # Attempt integer-scaling conversion: multiply all coefficients
-                    # by a power of ten to make them integer-like, rebuild the
-                    # QuadraticProgram with scaled integers, and try solving.
-                    from decimal import Decimal
+    if qaoa_result is not None:
+        print("\nQAOA QUANTUM SOLUTION:")
+        qaoa_su = qaoa_result['server_usage']
+        qaoa_active = qaoa_result['active_servers']
+        qaoa_per_rec, qaoa_makespan = simulate_servers(
+            [su for su in qaoa_su if su['jobs']], jobs, verbose=False
+        )
+        print(f" - Active servers  : {qaoa_active}")
+        print(f" - QUBO objective  : {qaoa_result['objective']:.4f}")
+        print(f" - Status          : {qaoa_result['status']}")
+        print(f" - Makespan        : {qaoa_makespan:.2f} seconds")
+        if qaoa_result['unplaced']:
+            print(f" - Unplaced jobs   : {qaoa_result['unplaced']} (increase reps/maxiter)")
+        print("\nDetailed timeline (QAOA solution):")
+        for idx, rec in enumerate(qaoa_per_rec):
+            job_ids = [j['id'] for j in rec['jobs']]
+            print(f" - Server {idx}: Jobs {job_ids} -> completes at t={rec['completion']:.2f}s")
 
-                    def _decimals(x: float) -> int:
-                        try:
-                            d = Decimal(str(x)).normalize()
-                        except Exception:
-                            return 0
-                        exp = -d.as_tuple().exponent
-                        return max(0, exp)
-
-                    max_dec = 0
-                    # check module-level constants
-                    for v in (CORES_PER_SERVER, RAM_PER_SERVER, NVME_PER_SERVER, BANDWIDTH_PER_SERVER):
-                        max_dec = max(max_dec, _decimals(v))
-                    for job in jobs:
-                        for f in ("cores", "ram", "nvme", "bandwidth"):
-                            max_dec = max(max_dec, _decimals(job.get(f, 0)))
-
-                    # limit scaling to avoid huge integers and allocator surprises
-                    # use conservative cap (10^3) to prevent extremely large coeffs
-                    max_dec = min(max_dec, 3)
-                    if max_dec == 0:
-                        print("[QP] Non-integer coefficients detected but no decimal places found; skipping scaled solve.")
-                    else:
-                        scale = 10 ** max_dec
-                        print(f"[QP] Attempting integer-scaling by 10^{max_dec} = {scale} and solving scaled QP...")
-                        # Build and solve the scaled QP, but guard aggressively
-                        try:
-                            from qiskit_optimization import QuadraticProgram as _QP2  # type: ignore
-                        except ImportError:
-                            print("[QP] qiskit-optimization not available for scaled QP; skipping scaled solve.")
-                        else:
-                            try:
-                                scaled_qp = _QP2(name="cloud_binpacking_scaled")
-                                # variables
-                                for s in range(servers):
-                                    scaled_qp.binary_var(name=f"y_{s}")
-                                for job in jobs:
-                                    j = job["id"]
-                                    for s in range(servers):
-                                        scaled_qp.binary_var(name=f"x_{j}_{s}")
-
-                                # assignment constraints
-                                for job in jobs:
-                                    j = job["id"]
-                                    linear = {f"x_{j}_{s}": int(round(1 * scale)) for s in range(servers)}
-                                    scaled_qp.linear_constraint(linear=linear, sense="<=", rhs=int(round(1 * scale)), name=f"assign_at_most_{j}")
-
-                                # per-server constraints (scaled)
-                                sc_cores = int(round(CORES_PER_SERVER * scale))
-                                sc_ram = int(round(RAM_PER_SERVER * scale))
-                                sc_nvme = int(round(NVME_PER_SERVER * scale))
-                                sc_bw = int(round(BANDWIDTH_PER_SERVER * scale))
-
-                                for s in range(servers):
-                                    linear = {f"x_{job['id']}_{s}": int(round(job['cores'] * scale)) for job in jobs}
-                                    linear[f"y_{s}"] = -sc_cores
-                                    scaled_qp.linear_constraint(linear=linear, sense="<=", rhs=0, name=f"cores_cap_{s}")
-
-                                    linear = {f"x_{job['id']}_{s}": int(round(job['ram'] * scale)) for job in jobs}
-                                    linear[f"y_{s}"] = -sc_ram
-                                    scaled_qp.linear_constraint(linear=linear, sense="<=", rhs=0, name=f"ram_cap_{s}")
-
-                                    linear = {f"x_{job['id']}_{s}": int(round(job['nvme'] * scale)) for job in jobs}
-                                    linear[f"y_{s}"] = -sc_nvme
-                                    scaled_qp.linear_constraint(linear=linear, sense="<=", rhs=0, name=f"nvme_cap_{s}")
-
-                                    linear = {f"x_{job['id']}_{s}": int(round(job.get('bandwidth', 0.0) * scale)) for job in jobs}
-                                    linear[f"y_{s}"] = -sc_bw
-                                    scaled_qp.linear_constraint(linear=linear, sense="<=", rhs=0, name=f"bandwidth_cap_{s}")
-
-                                # objective: minimize sum(y_s) scaled
-                                linear_obj = {f"y_{s}": int(round(1 * scale)) for s in range(servers)}
-                                scaled_qp.minimize(linear=linear_obj)
-
-                            except MemoryError as me:
-                                print(f"[QP] MemoryError while building scaled QP: {me}. Skipping scaled solve and using classical heuristics.")
-                                _log_memory_error("building scaled_qp", me, extra={"servers": servers, "jobs_count": len(jobs)})
-                            else:
-                                # attempt solve on scaled_qp with MemoryError guard
-                                try:
-                                    solver = MinimumEigenOptimizer(NumPyMinimumEigensolver())
-                                    res = solver.solve(scaled_qp)
-                                except MemoryError as me:
-                                    print(f"[QP] MemoryError during scaled NumPyMinimumEigensolver solve: {me}. Falling back to classical heuristics.")
-                                    _log_memory_error("scaled NumPyMinimumEigensolver solve", me, extra={"servers": servers, "jobs_count": len(jobs)})
-                                except Exception as se:
-                                    print(f"[QP] Scaled NumPyMinimumEigensolver solve failed: {type(se).__name__}: {se}. Falling back to classical heuristics.")
-                                else:
-                                    print("[QP] Scaled solver result:")
-                                    print(f" x: {res.x}")
-                                    print(f" objective: {res.fval}")
-                                    # interpret solution (same variable names)
-                                    assign = {v.name: int(round(val)) for v, val in zip(scaled_qp.variables, res.x)}
-                                    assigned_jobs = {}
-                                    for name, val in assign.items():
-                                        if name.startswith('x_') and val == 1:
-                                            parts = name.split('_')
-                                            jid = int(parts[1])
-                                            sid = int(parts[2])
-                                            assigned_jobs.setdefault(sid, []).append(jid)
-                                    for sidx in range(servers):
-                                        jobs_on = assigned_jobs.get(sidx, [])
-                                        print(f" - Server {sidx}: Jobs {jobs_on}")
-                else:
-                    try:
-                        solver = MinimumEigenOptimizer(NumPyMinimumEigensolver())
-                        res = solver.solve(qp)
-                        print("[QP] Solver result:")
-                        print(f" x: {res.x}")
-                        print(f" objective: {res.fval}")
-                        # Map assignments to per-server placement for display
-                        assign = {v.name: int(round(val)) for v, val in zip(qp.variables, res.x)}
-                        assigned_jobs = {}
-                        for name, val in assign.items():
-                            if name.startswith('x_') and val == 1:
-                                parts = name.split('_')
-                                # name x_{job}_{server}
-                                jid = int(parts[1])
-                                sid = int(parts[2])
-                                assigned_jobs.setdefault(sid, []).append(jid)
-                        for sidx in range(servers):
-                            jobs_on = assigned_jobs.get(sidx, [])
-                            print(f" - Server {sidx}: Jobs {jobs_on}")
-                    except MemoryError as me:
-                        print(f"[QP] NumPyMinimumEigensolver out of memory: {me}. Falling back to classical heuristics.")
-                        _log_memory_error("NumPyMinimumEigensolver solve (original qp)", me, extra={"total_vars": total_vars, "servers": servers, "jobs_count": len(jobs)})
-                    except Exception as ee:
-                        print(f"[QP] NumPyMinimumEigensolver solve failed: {type(ee).__name__}: {ee}. Falling back to classical heuristics.")
-    except Exception:
-        # Be defensive: any unexpected error should not crash the script.
-        print("[QP] Unexpected error while attempting to solve QP; using classical heuristics.")
-
-    # If we reach here (or chose not to run the quantum solver), show classical results
-    print("\nUsing classical heuristics (best_fit_decreasing) to show an example solution:")
-    bf = pack_best_fit_decreasing(jobs)
-    per_rec, makespan = simulate_servers(bf, jobs)
-    for idx, rec in enumerate(per_rec):
-        job_ids = [j['id'] for j in rec['jobs']]
-        print(f" - Server {idx}: Jobs {job_ids} -> completes at t={rec['completion']:.2f}s")
-    print(f"Total makespan (classical): {makespan:.2f} seconds")
+        # Compare QAOA vs best classical heuristic
+        saved_vs_classical = best['servers'] - qaoa_active
+        cost_delta = saved_vs_classical * COST_PER_SERVER_PER_HOUR
+        print(f"\nQAOA vs Classical best ({best_name}):")
+        print(f" - Servers saved   : {saved_vs_classical}")
+        print(f" - Cost delta      : €{cost_delta:.2f}/hour")
+        if best['makespan'] > 0 and qaoa_makespan > 0:
+            speed_pct = (best['makespan'] - qaoa_makespan) / best['makespan'] * 100.0
+            print(f" - Makespan delta  : {speed_pct:.1f}% {'faster' if speed_pct >= 0 else 'slower'}")
+    else:
+        print("\n[QAOA] Solver unavailable or failed. Falling back to classical best-fit heuristic.")
+        print("\nClassical fallback (best_fit_decreasing):")
+        bf = pack_best_fit_decreasing(jobs)
+        per_rec, makespan = simulate_servers(bf, jobs, verbose=False)
+        for idx, rec in enumerate(per_rec):
+            job_ids = [j['id'] for j in rec['jobs']]
+            print(f" - Server {idx}: Jobs {job_ids} -> completes at t={rec['completion']:.2f}s")
+        print(f"Total makespan (classical): {makespan:.2f} seconds")
 
 
 
