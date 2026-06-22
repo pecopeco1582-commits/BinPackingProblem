@@ -1,0 +1,1550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Packing Jobs onto Servers — Normal vs Quantum</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f5f0;
+    --white: #ffffff;
+    --border: #ddddd8;
+    --text: #1a1a1a;
+    --muted: #888884;
+    --accent: #0047ff;
+    --green: #00a651;
+    --orange: #ff6200;
+    --red: #d00000;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'IBM Plex Sans', sans-serif; min-height: 100vh; }
+
+  /* PAGE SYSTEM */
+  .page { display: none; min-height: 100vh; flex-direction: column; }
+  .page.active { display: flex; }
+
+  /* SHARED HEADER */
+  .header {
+    background: var(--white); border-bottom: 2px solid var(--text);
+    padding: 18px 40px; display: flex; align-items: center;
+    justify-content: space-between; flex-shrink: 0;
+  }
+  .header-left { display: flex; align-items: baseline; gap: 16px; }
+  .header h1 { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+  .header .ver { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .gh-link {
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+    color: var(--muted); text-decoration: none;
+    border: 1px solid var(--border); padding: 5px 10px;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .gh-link:hover { color: var(--text); border-color: var(--text); }
+  .back-btn {
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+    color: var(--muted); border: 1px solid var(--border);
+    padding: 5px 10px; cursor: pointer; background: none;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .back-btn:hover { color: var(--text); border-color: var(--text); }
+
+  /* ── LANDING ── */
+  .landing-body {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; padding: 80px 40px;
+    background: var(--white);
+  }
+  .landing-badge {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+    letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted);
+    border: 1px solid var(--border); padding: 4px 12px; margin-bottom: 32px;
+  }
+  .landing-hello { font-size: 52px; font-weight: 600; letter-spacing: -0.04em; margin-bottom: 12px; text-align: center; }
+  .landing-sub { font-size: 16px; color: var(--muted); margin-bottom: 56px; text-align: center; max-width: 480px; line-height: 1.6; }
+  .landing-question { font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 20px; text-align: center; }
+  .landing-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; width: 100%; max-width: 560px; }
+  .choice-card { border: 2px solid var(--border); padding: 28px 24px; cursor: pointer; transition: border-color 0.15s, background 0.15s; background: var(--bg); }
+  .choice-card:hover { border-color: var(--accent); background: var(--white); }
+  .choice-card .card-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .choice-card .card-title { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 8px; }
+  .choice-card .card-desc { font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .choice-card .card-arrow { margin-top: 20px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--accent); }
+
+  /* ── ONBOARDING ── */
+  .progress-bar-wrap { height: 2px; background: var(--border); flex-shrink: 0; }
+  .progress-bar-fill { height: 100%; background: var(--accent); transition: width 0.4s ease; }
+  .onboarding-body { flex: 1; display: grid; grid-template-columns: 260px 1fr; min-height: 0; }
+
+  .ob-nav { background: var(--white); border-right: 1px solid var(--border); padding: 32px 0; overflow-y: auto; }
+  .ob-nav-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); padding: 0 24px; margin-bottom: 16px; }
+  .ob-step-item { display: flex; align-items: flex-start; gap: 14px; padding: 14px 24px; cursor: pointer; border-left: 3px solid transparent; transition: background 0.15s, border-color 0.15s; }
+  .ob-step-item:hover { background: var(--bg); }
+  .ob-step-item.active { border-left-color: var(--accent); background: var(--bg); }
+  .ob-step-item.done { border-left-color: var(--green); }
+  .ob-step-num { font-family: 'IBM Plex Mono', monospace; font-size: 11px; width: 22px; height: 22px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; transition: background 0.15s, border-color 0.15s, color 0.15s; }
+  .ob-step-item.active .ob-step-num { background: var(--accent); border-color: var(--accent); color: white; }
+  .ob-step-item.done .ob-step-num { background: var(--green); border-color: var(--green); color: white; }
+  .ob-step-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .ob-step-sub { font-size: 11px; color: var(--muted); line-height: 1.4; }
+
+  .ob-content { padding: 40px 56px; overflow-y: auto; }
+  .ob-panel { display: none; animation: fadeIn 0.25s ease; }
+  .ob-panel.active { display: block; }
+  .ob-step-badge { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .ob-panel h2 { font-size: 28px; font-weight: 600; letter-spacing: -0.03em; margin-bottom: 8px; }
+  .ob-lead { font-size: 14px; color: var(--muted); line-height: 1.7; margin-bottom: 32px; max-width: 600px; }
+
+  .ob-card { background: var(--white); border: 1px solid var(--border); padding: 24px 28px; margin-bottom: 16px; }
+  .ob-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+  .ob-card h3 .num { font-family: 'IBM Plex Mono', monospace; font-size: 10px; background: var(--accent); color: white; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .ob-card p { font-size: 13px; color: #555; line-height: 1.7; margin-bottom: 10px; }
+  .ob-card p:last-child { margin-bottom: 0; }
+  .mono-tag { font-family: 'IBM Plex Mono', monospace; font-size: 11px; background: var(--bg); border: 1px solid var(--border); padding: 2px 7px; }
+
+  .ob-highlight { background: #f0f4ff; border: 1px solid #c0d0ff; padding: 16px 20px; font-size: 13px; line-height: 1.7; margin-bottom: 20px; color: #1a1a4a; }
+  .ob-highlight strong { color: var(--accent); }
+
+  .ob-job-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
+  .ob-job-card { background: var(--white); border: 1px solid var(--border); padding: 16px; }
+  .ob-job-card .jname { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 4px; }
+  .ob-job-card .jspec { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted); margin-bottom: 8px; }
+  .ob-job-card .jdesc { font-size: 12px; color: #555; line-height: 1.5; }
+
+  .ob-code-block { background: #1a1a1a; color: #a8ffb0; font-family: 'IBM Plex Mono', monospace; font-size: 12px; padding: 18px 20px; line-height: 1.7; margin-bottom: 16px; overflow-x: auto; }
+  .ob-code-block .dim { color: #555; }
+  .ob-code-block .key { color: #7ecfff; }
+  .ob-code-block .val { color: #ffcf7e; }
+
+  .solver-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px; }
+  .solver-table th { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); text-align: left; padding: 8px 12px; border-bottom: 2px solid var(--border); background: var(--bg); }
+  .solver-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--white); line-height: 1.5; }
+  .solver-table td:first-child { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--accent); font-weight: 600; }
+
+  .constraint-formula { background: var(--bg); border: 1px solid var(--border); padding: 14px 18px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; margin-bottom: 16px; line-height: 1.8; }
+  .constraint-formula .clabel { font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+
+  .ob-nav-btns { display: flex; gap: 12px; margin-top: 32px; align-items: center; }
+  .btn-primary { background: var(--text); color: white; border: none; padding: 12px 28px; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; letter-spacing: 0.05em; transition: background 0.15s; }
+  .btn-primary:hover { background: var(--accent); }
+  .btn-secondary { background: transparent; color: var(--muted); border: 1px solid var(--border); padding: 12px 20px; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; cursor: pointer; transition: color 0.15s, border-color 0.15s; }
+  .btn-secondary:hover { color: var(--text); border-color: var(--text); }
+  .btn-accent { background: var(--accent); color: white; border: none; padding: 12px 28px; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; letter-spacing: 0.05em; transition: opacity 0.15s; }
+  .btn-accent:hover { opacity: 0.85; }
+  .step-of { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); margin-left: auto; }
+
+  /* ── SCHEDULER ── */
+  .scheduler-body { flex: 1; display: grid; grid-template-columns: 320px 1fr; min-height: 0; }
+  .sidebar { background: var(--white); border-right: 1px solid var(--border); padding: 20px 22px; overflow-y: auto; }
+  .section-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  .about-box { background: var(--bg); border: 1px solid var(--border); padding: 12px 14px; margin-bottom: 24px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .about-box strong { color: var(--text); }
+  .job-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--border); }
+  .job-row:last-of-type { border-bottom: none; }
+  .job-name { font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; }
+  .job-spec { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .job-desc { font-size: 10px; color: var(--muted); margin-top: 2px; font-style: italic; }
+  input[type="number"] { width: 56px; border: 1px solid var(--border); background: var(--bg); font-family: 'IBM Plex Mono', monospace; font-size: 14px; padding: 6px 8px; text-align: center; outline: none; transition: border-color 0.15s; }
+  input[type="number"]:focus { border-color: var(--accent); }
+  .divider { height: 1px; background: var(--border); margin: 14px 0; }
+  .servers-control { margin-bottom: 14px; }
+  .server-desc { font-size: 11px; color: var(--muted); margin-bottom: 8px; line-height: 1.5; }
+  .servers-row { display: flex; align-items: center; gap: 12px; }
+  input[type="range"] { -webkit-appearance: none; flex: 1; height: 3px; background: var(--border); outline: none; }
+  input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: var(--accent); border-radius: 50%; cursor: pointer; }
+  .range-num { font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 600; color: var(--accent); min-width: 24px; }
+  .run-btn { width: 100%; background: var(--text); color: var(--white); border: none; padding: 12px; font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; letter-spacing: 0.05em; transition: background 0.15s; display: flex; align-items: center; justify-content: center; gap: 10px; }
+  .run-btn:hover { background: var(--accent); }
+  .run-btn:disabled { background: var(--muted); cursor: not-allowed; }
+  .spinner { width: 14px; height: 14px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; display: none; }
+  .run-btn.loading .spinner { display: block; }
+  .var-box { margin-top: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 10px; background: var(--bg); border: 1px solid var(--border); }
+  .var-box-desc { font-size: 10px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+
+  /* ── Presets ── */
+  .preset-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+  .preset-btn { text-align: left; background: var(--white); border: 1px solid var(--border); padding: 11px 13px; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+  .preset-btn:hover { border-color: var(--accent); background: var(--bg); }
+  /* Selected preset: outer ring + tint so it's obvious which one is active. box-shadow avoids layout shift. */
+  .preset-btn.selected { border-color: var(--accent); background: #f0f4ff; box-shadow: 0 0 0 2px var(--accent); }
+  .preset-btn .pname { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; color: var(--accent); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .preset-btn .pname .pconf { color: var(--muted); font-weight: 400; font-size: 10px; }
+  .preset-btn .pdesc { font-size: 11px; color: #555; line-height: 1.45; margin-top: 4px; }
+
+  /* Clear / reset-to-defaults button */
+  .reset-btn { width: 100%; margin-top: 10px; background: none; color: var(--muted); border: 1px solid var(--border); padding: 10px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.04em; cursor: pointer; transition: color 0.15s, border-color 0.15s; }
+  .reset-btn:hover { color: var(--red); border-color: var(--red); }
+
+  .content { padding: 32px 40px; overflow-y: auto; }
+  .page-desc { background: var(--white); border: 1px solid var(--border); padding: 20px 24px; margin-bottom: 28px; font-size: 13px; line-height: 1.7; color: #444; }
+  .page-desc strong { color: var(--text); }
+  .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 50vh; color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 13px; gap: 8px; text-align: center; }
+  .empty-state .big { font-size: 48px; opacity: 0.15; }
+
+  /* ── Comparison table ── */
+  .cmp-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .cmp-sub { font-size: 12px; color: var(--muted); margin-bottom: 16px; line-height: 1.5; }
+  .cmp-grid { background: var(--white); border: 1px solid var(--border); margin-bottom: 28px; overflow: hidden; }
+  .cmp-head { display: grid; grid-template-columns: 1.4fr 1fr 1fr; border-bottom: 2px solid var(--text); }
+  .cmp-head > div { padding: 14px 18px; font-weight: 600; font-size: 13px; }
+  .cmp-head .col-q { color: var(--accent); }
+  .cmp-head .col-label { color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; align-self: center; }
+  .cmp-row { display: grid; grid-template-columns: 1.4fr 1fr 1fr; border-bottom: 1px solid var(--border); }
+  .cmp-row:last-child { border-bottom: none; }
+  .cmp-row > div { padding: 16px 18px; }
+  .cmp-rowlabel { font-size: 13px; }
+  .cmp-rowlabel small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; font-weight: 400; }
+  .cmp-val { font-family: 'IBM Plex Mono', monospace; font-size: 20px; font-weight: 600; }
+  .cmp-val.q { color: var(--accent); }
+  .cmp-val small { font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 4px; }
+  .cmp-na { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); line-height: 1.4; }
+
+  /* ── Scaling panel ── */
+  .scale-panel { background: var(--white); border: 1px solid var(--border); padding: 24px; margin-bottom: 24px; }
+  .scale-row { display: flex; align-items: baseline; justify-content: space-between; padding: 10px 0; border-bottom: 1px dashed var(--border); }
+  .scale-row:last-of-type { border-bottom: none; }
+  .scale-name { font-size: 13px; }
+  .scale-name small { display: block; color: var(--muted); font-size: 11px; margin-top: 1px; }
+  .scale-val { font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 600; color: var(--accent); }
+  .scale-note { margin-top: 16px; font-size: 12px; color: #444; line-height: 1.7; background: var(--bg); border-left: 3px solid var(--accent); padding: 12px 14px; }
+
+  /* ── Verdict ── */
+  .verdict { background: var(--text); color: var(--white); padding: 20px 24px; margin-bottom: 24px; }
+  .verdict .vlabel { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: #bbb; margin-bottom: 8px; }
+  .verdict .vtext { font-size: 16px; line-height: 1.5; }
+  .verdict .vtext strong { color: #6db3ff; }
+
+  .error-box { background: #fff0f0; border: 1px solid var(--red); color: var(--red); padding: 14px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; margin-top: 16px; }
+  .error-box .err-detail { margin-top: 8px; font-size: 11px; opacity: 0.8; }
+
+  #results { display: none; animation: fadeIn 0.3s ease; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── NAV TABS ── */
+  .nav-tabs { background: var(--white); border-bottom: 1px solid var(--border); padding: 0 40px; display: flex; align-items: flex-end; gap: 0; flex-shrink: 0; }
+  .nav-tab { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; padding: 10px 18px; cursor: pointer; border: none; background: none; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.15s, border-color 0.15s; }
+  .nav-tab:hover { color: var(--text); }
+  .nav-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+
+  /* ── FEEDBACK ── */
+  .feedback-body { flex: 1; overflow-y: auto; background: var(--bg); padding: 56px 40px; }
+  .feedback-wrap { max-width: 620px; margin: 0 auto; }
+  .feedback-kicker { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
+  .feedback-wrap h2 { font-size: 30px; font-weight: 600; letter-spacing: -0.03em; margin-bottom: 10px; }
+  .feedback-lead { font-size: 14px; color: var(--muted); line-height: 1.7; margin-bottom: 32px; }
+  .feedback-card { background: var(--white); border: 1px solid var(--border); padding: 32px 34px; }
+  .fb-field { margin-bottom: 24px; }
+  .fb-label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .fb-label .req { color: var(--accent); }
+  .fb-hint { font-size: 11px; color: var(--muted); margin-bottom: 10px; line-height: 1.5; }
+  .fb-stars { display: flex; gap: 6px; }
+  .fb-star { font-size: 28px; line-height: 1; color: var(--border); cursor: pointer; transition: color 0.12s, transform 0.12s; user-select: none; }
+  .fb-star:hover { transform: scale(1.12); }
+  .fb-star.on { color: var(--orange); }
+  .fb-input, .fb-select, .fb-textarea {
+    width: 100%; border: 1px solid var(--border); background: var(--bg);
+    font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; color: var(--text);
+    padding: 11px 13px; outline: none; transition: border-color 0.15s;
+  }
+  .fb-input:focus, .fb-select:focus, .fb-textarea:focus { border-color: var(--accent); background: var(--white); }
+  .fb-textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
+  .fb-select { cursor: pointer; }
+  .fb-submit-row { display: flex; align-items: center; gap: 16px; margin-top: 4px; }
+  .fb-submit { background: var(--text); color: var(--white); border: none; padding: 13px 30px; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 600; letter-spacing: 0.05em; cursor: pointer; transition: background 0.15s; }
+  .fb-submit:hover { background: var(--accent); }
+  .fb-submit:disabled { background: var(--muted); cursor: not-allowed; }
+  .fb-note { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); }
+  .fb-error { color: var(--red); font-size: 12px; margin-top: 12px; min-height: 16px; }
+  .fb-thanks { background: var(--white); border: 1px solid var(--green); border-left: 4px solid var(--green); padding: 32px 34px; }
+  .fb-thanks .ft-badge { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--green); margin-bottom: 12px; }
+  .fb-thanks h3 { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 10px; }
+  .fb-thanks p { font-size: 13px; color: #555; line-height: 1.7; margin-bottom: 20px; }
+  .fb-thanks .ft-again { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--accent); border: 1px solid var(--border); background: none; padding: 8px 14px; cursor: pointer; transition: border-color 0.15s; }
+  .fb-thanks .ft-again:hover { border-color: var(--accent); }
+
+  /* ── ABOUT PAGE ── */
+  .about-body { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 0; overflow-y: auto; }
+  .about-left { padding: 56px 48px; border-right: 1px solid var(--border); background: var(--white); }
+  .about-right { padding: 56px 48px; background: var(--bg); }
+  .about-kicker { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; }
+  .about-left h2 { font-size: 32px; font-weight: 600; letter-spacing: -0.03em; margin-bottom: 20px; line-height: 1.1; }
+  .about-left p { font-size: 13px; color: #555; line-height: 1.8; margin-bottom: 16px; }
+  .about-left p:last-of-type { margin-bottom: 0; }
+
+  .about-gh-block { margin-top: 40px; border: 1px solid var(--border); padding: 24px; background: var(--bg); }
+  .about-gh-block .gh-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .about-gh-block .gh-repo-name { font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .about-gh-block .gh-repo-desc { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 16px; }
+  .about-gh-link { display: inline-flex; align-items: center; gap: 8px; background: var(--text); color: white; text-decoration: none; padding: 10px 18px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.05em; transition: background 0.15s; }
+  .about-gh-link:hover { background: var(--accent); }
+
+  .about-section-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 16px; }
+  .about-spec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 32px; }
+  .about-spec-card { background: var(--white); border: 1px solid var(--border); padding: 16px; }
+  .about-spec-card .spec-label { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .about-spec-card .spec-val { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; }
+
+  .about-stack-item { display: flex; align-items: flex-start; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .about-stack-item:last-child { border-bottom: none; }
+  .about-stack-dot { width: 8px; height: 8px; background: var(--accent); margin-top: 5px; flex-shrink: 0; }
+  .about-stack-name { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; margin-bottom: 2px; }
+  .about-stack-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  /* ── DEMO OVERLAY ── */
+  #demo-blocker { position: fixed; inset: 0; z-index: 9000; background: transparent; display: none; pointer-events: all; }
+  #demo-blocker.active { display: block; }
+  #demo-spotlight {
+    position: fixed; z-index: 9001; background: transparent;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.74); border: 2px solid var(--accent);
+    pointer-events: none; display: none;
+    transition: top .32s cubic-bezier(.16,1,.3,1), left .32s cubic-bezier(.16,1,.3,1),
+                width .32s cubic-bezier(.16,1,.3,1), height .32s cubic-bezier(.16,1,.3,1);
+  }
+  #demo-spotlight.active { display: block; }
+  #demo-bubble {
+    position: fixed; z-index: 9002; background: var(--white); border: 2px solid var(--text);
+    padding: 22px 26px; width: 340px; box-shadow: 5px 5px 0 rgba(0,0,0,0.13);
+    display: none; pointer-events: all;
+  }
+  #demo-bubble.active { display: block; animation: fadeIn 0.22s ease; }
+  .demo-dots { display: flex; gap: 5px; margin-bottom: 14px; }
+  .demo-dot  { width: 6px; height: 6px; background: var(--border); flex-shrink: 0; }
+  .demo-dot.active { background: var(--accent); }
+  .demo-dot.done   { background: var(--green); }
+  .demo-badge { font-family: 'IBM Plex Mono', monospace; font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--accent); margin-bottom: 9px; line-height: 1.5; }
+  .demo-ttl  { font-size: 17px; font-weight: 600; letter-spacing: -0.03em; margin-bottom: 10px; }
+  .demo-bdy  { font-size: 13px; color: #444; line-height: 1.75; margin-bottom: 20px; }
+  .demo-footer { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .demo-nxt { background: var(--text); color: white; border: none; padding: 10px 20px; font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.15s; }
+  .demo-nxt:hover:not(:disabled) { background: var(--accent); }
+  .demo-nxt:disabled { opacity: 0.55; cursor: not-allowed; }
+  .demo-nxt.finish { background: var(--accent); }
+  .demo-nxt.finish:hover { opacity: 0.85; background: var(--accent); }
+  .demo-xbtn { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--muted); cursor: pointer; background: none; border: none; padding: 0; transition: color 0.15s; }
+  .demo-xbtn:hover { color: var(--red); }
+  .demo-of { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted); margin-left: auto; }
+</style>
+</head>
+<body>
+
+<!-- PAGE 1: LANDING -->
+<div id="page-landing" class="page active">
+  <div class="header">
+    <div class="header-left">
+      <h1>Packing Jobs onto Servers</h1>
+      <span class="ver">normal computer vs. quantum method</span>
+    </div>
+    <div class="header-right"></div>
+  </div>
+  <div class="landing-body">
+    <div class="landing-badge">A small experiment</div>
+    <div class="landing-hello">Hello.</div>
+    <div class="landing-sub">This tool fits a set of computer jobs onto as few servers as possible — and it does it two ways, with a normal computer and with a quantum method, so you can see how they compare. First, a quick question.</div>
+    <div class="landing-question">Have you used something like this before?</div>
+    <div class="landing-choices">
+      <div class="choice-card" onclick="goOnboarding()">
+        <div class="card-label">Option A</div>
+        <div class="card-title">New to this</div>
+        <div class="card-desc">Show me what the tool does, what the settings mean, and how to read the results.</div>
+        <div class="card-arrow">→ Take the quick tour</div>
+      </div>
+      <div class="choice-card" onclick="goScheduler()">
+        <div class="card-label">Option B</div>
+        <div class="card-title">I know my way around</div>
+        <div class="card-desc">Skip the tour and take me straight to the tool.</div>
+        <div class="card-arrow">→ Open the tool</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 2: ONBOARDING -->
+<div id="page-onboarding" class="page">
+  <div class="header">
+    <div class="header-left">
+      <h1>Packing Jobs onto Servers</h1>
+      <span class="ver">Quick tour</span>
+    </div>
+    <div class="header-right">
+      <button class="back-btn" onclick="goLanding()">← Back to start</button>
+    </div>
+  </div>
+  <div class="progress-bar-wrap"><div class="progress-bar-fill" id="ob-progress" style="width:20%"></div></div>
+
+  <div class="onboarding-body">
+    <div class="ob-nav">
+      <div class="ob-nav-label">Steps</div>
+      <div class="ob-step-item active" id="nav-0" onclick="goStep(0)">
+        <div class="ob-step-num">1</div>
+        <div class="ob-step-text"><div class="ob-step-title">What this does</div><div class="ob-step-sub">The puzzle, in plain words</div></div>
+      </div>
+      <div class="ob-step-item" id="nav-1" onclick="goStep(1)">
+        <div class="ob-step-num">2</div>
+        <div class="ob-step-text"><div class="ob-step-title">The jobs</div><div class="ob-step-sub">The four kinds of work</div></div>
+      </div>
+      <div class="ob-step-item" id="nav-2" onclick="goStep(2)">
+        <div class="ob-step-num">3</div>
+        <div class="ob-step-text"><div class="ob-step-title">Servers &amp; size</div><div class="ob-step-sub">Why small problems matter</div></div>
+      </div>
+      <div class="ob-step-item" id="nav-3" onclick="goStep(3)">
+        <div class="ob-step-num">4</div>
+        <div class="ob-step-text"><div class="ob-step-title">Running it</div><div class="ob-step-sub">From zero to a result</div></div>
+      </div>
+      <div class="ob-step-item" id="nav-4" onclick="goStep(4)">
+        <div class="ob-step-num">5</div>
+        <div class="ob-step-text"><div class="ob-step-title">Reading the results</div><div class="ob-step-sub">The side-by-side and the catch</div></div>
+      </div>
+    </div>
+
+    <div class="ob-content">
+
+      <!-- STEP 1 -->
+      <div class="ob-panel active" id="panel-0">
+        <div class="ob-step-badge">Step 1 of 5</div>
+        <h2>What this does</h2>
+        <p class="ob-lead">You have a pile of computer jobs to run and a set of servers to run them on. The tool fits the jobs onto as few servers as possible — then solves the same puzzle two ways so you can compare them.</p>
+        <div class="ob-highlight"><strong>The goal:</strong> every job gets a server, no server is overloaded, and you use <strong>as few servers as you can</strong> — because idle servers still cost money.</div>
+        <div class="ob-card">
+          <h3><span class="num">A</span> It's like packing suitcases</h3>
+          <p>Each job takes up some space (a bit of processing power, some memory, some storage). Each server is a suitcase with a fixed size. The trick is fitting everything into the fewest suitcases. Easy with a few items — surprisingly hard once there are many.</p>
+        </div>
+        <div class="ob-card">
+          <h3><span class="num">B</span> Two ways to solve it</h3>
+          <p>A <strong>normal computer</strong> solves the packing puzzle the usual way — quickly. A <strong>quantum method</strong> (its real name is QAOA) solves the very same puzzle using a simulated quantum computer. The interesting part is watching how the two compare on speed.</p>
+        </div>
+        <div class="ob-card">
+          <h3><span class="num">C</span> What needs to be running</h3>
+          <p>This page talks to a small program on your own computer (at <span class="mono-tag">localhost:8000</span>). Start that program first, then come back and click the compare button. If it isn't running, you'll see a friendly error.</p>
+        </div>
+        <div class="ob-nav-btns">
+          <button class="btn-primary" onclick="goStep(1)">Next →</button>
+          <span class="step-of">1 of 5</span>
+        </div>
+      </div>
+
+      <!-- STEP 2 -->
+      <div class="ob-panel" id="panel-1">
+        <div class="ob-step-badge">Step 2 of 5</div>
+        <h2>The jobs</h2>
+        <p class="ob-lead">There are four kinds of job. Each one needs a certain amount of a server's resources and runs for a certain length of time. You choose how many of each to schedule.</p>
+        <div class="ob-job-grid">
+          <div class="ob-job-card">
+            <div class="jname">web_api</div>
+            <div class="jspec">1 core · 1 GB · 5 sec</div>
+            <div class="jdesc">A quick web request. Tiny and fast — you usually have lots of these.</div>
+          </div>
+          <div class="ob-job-card">
+            <div class="jname">batch</div>
+            <div class="jspec">2 cores · 2 GB · 5 min</div>
+            <div class="jdesc">A long number-crunching job. The heaviest kind — one of these can nearly fill a server on its own.</div>
+          </div>
+          <div class="ob-job-card">
+            <div class="jname">memory</div>
+            <div class="jspec">1 core · 3 GB · 1 min</div>
+            <div class="jdesc">A job that needs lots of memory. Uses most of a server's memory, so it doesn't share well.</div>
+          </div>
+          <div class="ob-job-card">
+            <div class="jname">io_heavy</div>
+            <div class="jspec">1 core · 1 GB · 3 min</div>
+            <div class="jdesc">A job that reads and writes lots of data. Hungry for storage and network.</div>
+          </div>
+        </div>
+        <div class="ob-highlight"><strong>Tip:</strong> Start with 3 <strong>web_api</strong> + 1 <strong>batch</strong> on 3 servers. That's the default, and it's small enough for the quantum method to finish quickly.</div>
+        <div class="ob-nav-btns">
+          <button class="btn-secondary" onclick="goStep(0)">← Back</button>
+          <button class="btn-primary" onclick="goStep(2)">Next →</button>
+          <span class="step-of">2 of 5</span>
+        </div>
+      </div>
+
+      <!-- STEP 3 -->
+      <div class="ob-panel" id="panel-2">
+        <div class="ob-step-badge">Step 3 of 5</div>
+        <h2>Servers &amp; size</h2>
+        <p class="ob-lead">The slider sets how many servers are available. There's one thing to keep in mind: the bigger the problem, the slower the quantum method gets — fast.</p>
+        <div class="ob-card">
+          <h3><span class="num">A</span> What one server holds</h3>
+          <p>Every server is the same size:</p>
+          <div class="constraint-formula">
+            <div class="clabel">One server</div>
+            2 cores &nbsp;·&nbsp; 4 GB memory &nbsp;·&nbsp; 40 GB storage &nbsp;·&nbsp; 10 Gbps network
+          </div>
+          <p>No server is ever allowed to go over any of these limits. The tool finds a way to fit everything within them, using as few servers as possible.</p>
+        </div>
+        <div class="ob-card">
+          <h3><span class="num">B</span> Why size matters for the quantum side</h3>
+          <p>The puzzle is made of small yes/no decisions — one for each job-and-server pairing:</p>
+          <div class="constraint-formula">
+            <div class="clabel">Problem size</div>
+            decisions = (jobs &times; servers) + servers
+          </div>
+          <p>The normal computer barely notices. But the quantum method needs one "qubit" per decision, and every extra qubit <strong>doubles</strong> the possibilities it has to sift through. So keep the numbers small — the live counter on the left turns orange when you're pushing it.</p>
+        </div>
+        <div class="ob-nav-btns">
+          <button class="btn-secondary" onclick="goStep(1)">← Back</button>
+          <button class="btn-primary" onclick="goStep(3)">Next →</button>
+          <span class="step-of">3 of 5</span>
+        </div>
+      </div>
+
+      <!-- STEP 4 -->
+      <div class="ob-panel" id="panel-3">
+        <div class="ob-step-badge">Step 4 of 5</div>
+        <h2>Running it</h2>
+        <p class="ob-lead">The exact steps from nothing to a result.</p>
+        <div class="ob-card">
+          <h3><span class="num">1</span> Start the helper program</h3>
+          <p>Open a terminal in the project folder and run:</p>
+          <div class="ob-code-block">
+            <span class="dim"># Go to the project folder</span><br>
+            cd "capstone final"<br><br>
+            <span class="dim"># Install what's needed (first time only)</span><br>
+            pip install fastapi uvicorn scipy qiskit-optimization<br><br>
+            <span class="dim"># Start it</span><br>
+            python -m uvicorn <span class="key">alpha2</span>:<span class="val">app</span> --reload
+          </div>
+          <p>When you see <span class="mono-tag">Uvicorn running on http://0.0.0.0:8000</span>, leave that window open.</p>
+        </div>
+        <div class="ob-card">
+          <h3><span class="num">2</span> Open this page</h3>
+          <p>Open <span class="mono-tag">scheduler_v9.html</span> in Chrome or Firefox. The page itself needs no server — it just talks to the helper program over <span class="mono-tag">localhost:8000</span>.</p>
+        </div>
+        <div class="ob-card">
+          <h3><span class="num">3</span> Choose your jobs</h3>
+          <p>On the left, type how many of each job you want (at least one). Watch the <span class="mono-tag">Problem size</span> box near the bottom — keep it in the green.</p>
+        </div>
+        <div class="ob-card">
+          <h3><span class="num">4</span> Choose how many servers</h3>
+          <p>Drag the <strong>servers</strong> slider. A little extra room often lets the tool find a tidier packing.</p>
+        </div>
+        <div class="ob-card">
+          <h3><span class="num">5</span> Click “Compare the two methods”</h3>
+          <p>The tool runs both solvers on your setup. The quantum one can take a few seconds. The results appear on the right.</p>
+        </div>
+        <div class="ob-nav-btns">
+          <button class="btn-secondary" onclick="goStep(2)">← Back</button>
+          <button class="btn-primary" onclick="goStep(4)">Next →</button>
+          <span class="step-of">4 of 5</span>
+        </div>
+      </div>
+
+      <!-- STEP 5 -->
+      <div class="ob-panel" id="panel-4">
+        <div class="ob-step-badge">Step 5 of 5</div>
+        <h2>Reading the results</h2>
+        <p class="ob-lead">You get a side-by-side table, a short explanation of why the quantum method slows down, and a one-line takeaway.</p>
+        <div class="ob-card">
+          <h3><span class="num">A</span> Servers used</h3>
+          <p>How many servers each method needed. Fewer is better — it means the jobs were packed more tightly. Often both methods tie on small problems.</p>
+        </div>
+        <div class="ob-card">
+          <h3><span class="num">B</span> Total time to finish</h3>
+          <p>How long until every job is done, once they're running. A single <span class="mono-tag">batch</span> job (5 minutes) usually sets this.</p>
+        </div>
+        <div class="ob-card">
+          <h3><span class="num">C</span> Time to find the answer</h3>
+          <p>How long each method itself took to think. This is the headline: the normal computer answers in a flash, while the quantum method takes much longer — and the gap grows fast as the problem gets bigger.</p>
+        </div>
+        <div class="ob-card">
+          <h3><span class="num">D</span> Why the quantum method slows down</h3>
+          <p>A panel shows the problem size turning into qubits, and qubits turning into a huge number of possibilities. That number is the whole reason the quantum method is slow here.</p>
+        </div>
+        <div class="ob-highlight" style="margin-top:24px;">
+          <strong>▶ Try the walkthrough:</strong> a guided click-through of every control, ending with a sample comparison — no helper program needed. The tool opens when you're done.
+        </div>
+        <div class="ob-nav-btns">
+          <button class="btn-secondary" onclick="goStep(3)">← Back</button>
+          <button class="btn-accent"    onclick="startDemo()" style="font-size:14px;padding:14px 32px;">▶ Start walkthrough</button>
+          <span class="step-of">5 of 5</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- PAGE 3: SCHEDULER -->
+<div id="page-scheduler" class="page">
+  <div class="header">
+    <div class="header-left">
+      <h1>Packing Jobs onto Servers</h1>
+      <span class="ver">normal computer vs. quantum method</span>
+    </div>
+    <div class="header-right">
+      <button class="back-btn" onclick="goLanding()">← Back to start</button>
+    </div>
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" id="tab-scheduler" onclick="switchTab('scheduler')">Compare</button>
+    <button class="nav-tab" id="tab-about" onclick="switchTab('about')">About</button>
+    <button class="nav-tab" id="tab-feedback" onclick="switchTab('feedback')">Feedback</button>
+  </div>
+
+  <!-- TAB: OPTIMIZER -->
+  <div id="tab-content-scheduler" class="scheduler-body">
+    <div class="sidebar">
+      <div class="section-label">Quick presets</div>
+      <div class="preset-list">
+        <button class="preset-btn" data-preset="match" onclick="applyPreset('match')">
+          <div class="pname"><span>① Easy match</span><span class="pconf">3 jobs · 2 servers</span></div>
+        </button>
+        <button class="preset-btn" data-preset="squeeze" onclick="applyPreset('squeeze')">
+          <div class="pname"><span>② Tight squeeze</span><span class="pconf">4 jobs · 2 servers</span></div>
+        </button>
+        <button class="preset-btn" data-preset="stress" onclick="applyPreset('stress')">
+          <div class="pname"><span>③ Stress quantum</span><span class="pconf">5 jobs · 3 servers</span></div>
+        </button>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="section-label">Pick your jobs</div>
+      <div class="job-row">
+        <div><div class="job-name">web_api</div><div class="job-spec">1 core · 1 GB · 5 sec</div></div>
+        <input type="number" id="web_api" value="3" min="0" max="20">
+      </div>
+      <div class="job-row">
+        <div><div class="job-name">batch</div><div class="job-spec">2 cores · 2 GB · 5 min</div></div>
+        <input type="number" id="batch" value="1" min="0" max="20">
+      </div>
+      <div class="job-row">
+        <div><div class="job-name">memory</div><div class="job-spec">1 core · 3 GB · 1 min</div></div>
+        <input type="number" id="memory" value="0" min="0" max="20">
+      </div>
+      <div class="job-row">
+        <div><div class="job-name">io_heavy</div><div class="job-spec">1 core · 1 GB · 3 min</div></div>
+        <input type="number" id="io_heavy" value="0" min="0" max="20">
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="servers-control">
+        <div class="section-label">How many servers</div>
+        <div class="server-desc">Each: 2 cores · 4 GB · 40 GB · 10 Gbps.</div>
+        <div class="servers-row">
+          <input type="range" id="servers" min="1" max="10" value="3" oninput="document.getElementById('sval').textContent=this.value; updateVarIndicator()">
+          <span class="range-num" id="sval">3</span>
+        </div>
+      </div>
+
+      <button class="run-btn" id="run-btn" onclick="run()">
+        <div class="spinner"></div>
+        <span>Compare the two methods</span>
+      </button>
+
+      <button class="reset-btn" id="reset-btn" onclick="resetDefaults()">↺ Clear &amp; reset to defaults</button>
+
+      <div class="var-box">
+        <div style="color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;font-size:10px;margin-bottom:4px;">Problem size</div>
+        <div id="var-count" style="font-size:18px;font-weight:600;">—</div>
+        <div id="var-bar-track" style="height:4px;background:var(--border);margin-top:6px;">
+          <div id="var-bar-fill" style="height:100%;width:0%;background:var(--green);transition:width 0.3s;"></div>
+        </div>
+        <div class="var-box-desc">Keep it green — bigger gets slow.</div>
+      </div>
+
+      <div id="error-container"></div>
+    </div>
+
+    <div class="content">
+      <div class="page-desc">
+        <strong>The puzzle:</strong> fit every job onto the fewest servers, without any
+        server running out of cores, memory, storage, or network.
+        <strong>The experiment:</strong> a normal computer solves this in a flash; a
+        quantum method (called <strong>QAOA</strong>) solves the same puzzle a very
+        different way — and gets dramatically slower as the puzzle grows.
+        Pick some jobs and run a comparison to see both side by side.
+      </div>
+
+      <div class="empty-state" id="empty">
+        <div class="big">◎</div>
+        <div>Pick some jobs and click “Compare the two methods”.</div>
+      </div>
+
+      <div id="results">
+
+        <div class="cmp-title">Two ways to solve the same puzzle</div>
+        <div class="cmp-sub">The same jobs, packed by each method.</div>
+
+        <div class="cmp-grid">
+          <div class="cmp-head">
+            <div class="col-label">Measure</div>
+            <div>Normal computer</div>
+            <div class="col-q">Quantum (QAOA)</div>
+          </div>
+
+          <div class="cmp-row">
+            <div class="cmp-rowlabel">Servers used
+              <small>Fewer is better.</small>
+            </div>
+            <div class="cmp-val" id="c-servers">—</div>
+            <div id="q-servers-cell"><span class="cmp-val q" id="q-servers">—</span></div>
+          </div>
+
+          <div class="cmp-row">
+            <div class="cmp-rowlabel">Total time to finish
+              <small>How long until every job is done.</small>
+            </div>
+            <div class="cmp-val" id="c-make">—</div>
+            <div id="q-make-cell"><span class="cmp-val q" id="q-make">—</span></div>
+          </div>
+
+          <div class="cmp-row">
+            <div class="cmp-rowlabel">Time to find the answer
+              <small>How long the method itself took to think.</small>
+            </div>
+            <div class="cmp-val" id="c-solve">—</div>
+            <div id="q-solve-cell"><span class="cmp-val q" id="q-solve">—</span></div>
+          </div>
+        </div>
+
+        <div class="scale-panel" id="scale-panel">
+          <div class="cmp-title">Why the quantum method slows down</div>
+          <div class="cmp-sub">A quantum computer works in “qubits”. Every extra qubit <strong>doubles</strong> the possibilities it has to sift through.</div>
+
+          <div class="scale-row">
+            <div class="scale-name">Jobs × servers
+              <small>The choices you set on the left.</small>
+            </div>
+            <div class="scale-val" id="sc-size">—</div>
+          </div>
+          <div class="scale-row">
+            <div class="scale-name">Pieces of the puzzle
+              <small>One yes/no decision per job-and-server pair.</small>
+            </div>
+            <div class="scale-val" id="sc-vars">—</div>
+          </div>
+          <div class="scale-row">
+            <div class="scale-name">Qubits needed
+              <small>What the quantum computer has to set up.</small>
+            </div>
+            <div class="scale-val" id="sc-qubits">—</div>
+          </div>
+          <div class="scale-row">
+            <div class="scale-name">Possibilities to explore
+              <small>Two raised to the number of qubits.</small>
+            </div>
+            <div class="scale-val" id="sc-space">—</div>
+          </div>
+
+          <div class="scale-note">
+            The normal computer just solves the math directly, so it stays fast. The
+            quantum method has to deal with all those possibilities, which is why it
+            takes so much longer here.
+          </div>
+        </div>
+
+        <div class="verdict">
+          <div class="vlabel">Bottom line</div>
+          <div class="vtext" id="verdict-text">—</div>
+        </div>
+
+      </div>
+    </div>
+  </div><!-- /tab-content-scheduler -->
+
+  <!-- TAB: ABOUT -->
+  <div id="tab-content-about" class="about-body" style="display:none;">
+    <div class="about-left">
+      <div class="about-kicker">About this project</div>
+      <h2>Packing Jobs onto Servers</h2>
+      <p>
+        A small teaching tool. It takes a set of computer jobs and fits them onto the
+        fewest servers possible — making sure no server runs out of processing power,
+        memory, storage, or network along the way.
+      </p>
+      <p>
+        The point of the tool is the comparison. It solves the exact same packing puzzle
+        two ways: with an ordinary solver running on a normal computer, and with a
+        quantum method called QAOA running on a simulated quantum computer. Then it shows
+        you, side by side, which used fewer servers and — the interesting part — how much
+        longer the quantum method took.
+      </p>
+      <p>
+        The honest lesson: on small problems the normal computer wins easily. The quantum
+        approach only starts to matter on problems far too big to run on a laptop. This
+        tool lets you watch that gap appear for yourself.
+      </p>
+
+      <div class="about-gh-block">
+        <div class="gh-label">Source code</div>
+        <div class="gh-repo-name">BinPackingProblem</div>
+        <div class="gh-repo-desc">
+          Everything that runs this: the helper program
+          (<span style="font-family:'IBM Plex Mono',monospace;font-size:11px;">alpha2.py</span>),
+          this page, and earlier versions.
+        </div>
+        <a class="about-gh-link" href="https://github.com/pecopeco1582-commits/BinPackingProblem" target="_blank" rel="noopener">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          pecopeco1582-commits / BinPackingProblem
+        </a>
+      </div>
+    </div>
+
+    <div class="about-right">
+      <div class="about-section-label">What one server holds</div>
+      <div class="about-spec-grid">
+        <div class="about-spec-card"><div class="spec-label">Cores</div><div class="spec-val">2</div></div>
+        <div class="about-spec-card"><div class="spec-label">Memory</div><div class="spec-val">4 GB</div></div>
+        <div class="about-spec-card"><div class="spec-label">Storage</div><div class="spec-val">40 GB</div></div>
+        <div class="about-spec-card"><div class="spec-label">Network</div><div class="spec-val">10 Gbps</div></div>
+      </div>
+
+      <div class="about-section-label">What's under the hood</div>
+      <div>
+        <div class="about-stack-item">
+          <div class="about-stack-dot"></div>
+          <div>
+            <div class="about-stack-name">The helper program</div>
+            <div class="about-stack-desc">A small web service on your computer. It takes your jobs and server count, runs both methods, and sends back the comparison this page shows.</div>
+          </div>
+        </div>
+        <div class="about-stack-item">
+          <div class="about-stack-dot"></div>
+          <div>
+            <div class="about-stack-name">The normal method</div>
+            <div class="about-stack-desc">A fast, well-known packing recipe (best-fit). It places each job on the server where it fits most snugly. Quick even on big problems.</div>
+          </div>
+        </div>
+        <div class="about-stack-item">
+          <div class="about-stack-dot"></div>
+          <div>
+            <div class="about-stack-name">The quantum method (QAOA)</div>
+            <div class="about-stack-desc">Solves the same puzzle on a simulated quantum computer. Accurate on small problems, but it slows down sharply as the problem grows — which is exactly what the comparison shows.</div>
+          </div>
+        </div>
+        <div class="about-stack-item">
+          <div class="about-stack-dot"></div>
+          <div>
+            <div class="about-stack-name">This page</div>
+            <div class="about-stack-desc">A single file, no installation. It just talks to the helper program and lays the two results next to each other.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /tab-content-about -->
+
+  <!-- TAB: FEEDBACK -->
+  <div id="tab-content-feedback" class="feedback-body" style="display:none;">
+    <div class="feedback-wrap">
+      <div class="feedback-kicker">We're listening</div>
+      <h2>Send feedback</h2>
+      <p class="feedback-lead">
+        Found something confusing, hit a bug, or have an idea? Tell us. This is a
+        teaching tool, so notes on what did or didn't make sense are especially useful.
+      </p>
+
+      <form class="feedback-card" id="feedback-form" onsubmit="submitFeedback(event)">
+        <div class="fb-field">
+          <label class="fb-label">How was it?</label>
+          <div class="fb-hint">Tap a star — 1 is rough, 5 is great.</div>
+          <div class="fb-stars" id="fb-stars">
+            <span class="fb-star" data-v="1" onclick="setRating(1)">★</span>
+            <span class="fb-star" data-v="2" onclick="setRating(2)">★</span>
+            <span class="fb-star" data-v="3" onclick="setRating(3)">★</span>
+            <span class="fb-star" data-v="4" onclick="setRating(4)">★</span>
+            <span class="fb-star" data-v="5" onclick="setRating(5)">★</span>
+          </div>
+        </div>
+
+        <div class="fb-field">
+          <label class="fb-label" for="fb-category">What's this about?</label>
+          <select class="fb-select" id="fb-category">
+            <option value="general">General feedback</option>
+            <option value="bug">Something's broken (bug)</option>
+            <option value="confusing">Something was confusing</option>
+            <option value="idea">An idea or request</option>
+            <option value="quantum">The quantum / QAOA part</option>
+          </select>
+        </div>
+
+        <div class="fb-field">
+          <label class="fb-label" for="fb-message">Your message <span class="req">*</span></label>
+          <textarea class="fb-textarea" id="fb-message" placeholder="What's on your mind?"></textarea>
+        </div>
+
+        <div class="fb-field">
+          <label class="fb-label" for="fb-email">Email <span class="fb-hint" style="display:inline;margin:0;">(optional — only if you want a reply)</span></label>
+          <input class="fb-input" id="fb-email" type="email" placeholder="you@example.com" autocomplete="email">
+        </div>
+
+        <div class="fb-submit-row">
+          <button class="fb-submit" type="submit" id="fb-submit-btn">Send feedback</button>
+          <span class="fb-note">Stays on your machine — never sent anywhere without a helper program.</span>
+        </div>
+        <div class="fb-error" id="fb-error"></div>
+      </form>
+
+      <div class="fb-thanks" id="fb-thanks" style="display:none;">
+        <div class="ft-badge">✓ Got it</div>
+        <h3>Thanks for the feedback.</h3>
+        <p id="fb-thanks-msg">Your note has been recorded. We read every one — it genuinely helps make this clearer.</p>
+        <button class="ft-again" onclick="resetFeedback()">← Send another</button>
+      </div>
+    </div>
+  </div><!-- /tab-content-feedback -->
+
+</div><!-- /page-scheduler -->
+
+<!-- ── DEMO OVERLAY ── -->
+<div id="demo-blocker"></div>
+<div id="demo-spotlight"></div>
+<div id="demo-bubble">
+  <div class="demo-dots" id="demo-dots"></div>
+  <div class="demo-badge" id="demo-badge"></div>
+  <div class="demo-ttl"   id="demo-ttl"></div>
+  <div class="demo-bdy"   id="demo-bdy"></div>
+  <div class="demo-footer">
+    <button class="demo-nxt" id="demo-nxt" onclick="demoNext()">Next →</button>
+    <button class="demo-xbtn" onclick="exitDemo()">✕ exit tour</button>
+    <span class="demo-of" id="demo-of"></span>
+  </div>
+</div>
+
+<script>
+// ── PAGE NAV ──
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function goLanding()    { showPage('page-landing'); }
+function goScheduler()  { showPage('page-scheduler'); updateVarIndicator(); }
+function goOnboarding() { showPage('page-onboarding'); goStep(0); }
+
+// ── TAB SWITCHING ──
+const TAB_DISPLAY = { scheduler: 'grid', about: 'grid', feedback: 'block' };
+function switchTab(name) {
+  ['scheduler','about','feedback'].forEach(t => {
+    document.getElementById('tab-content-' + t).style.display = 'none';
+    document.getElementById('tab-' + t).classList.remove('active');
+  });
+  document.getElementById('tab-content-' + name).style.display = TAB_DISPLAY[name] || 'block';
+  document.getElementById('tab-' + name).classList.add('active');
+  if (name === 'scheduler') updateVarIndicator();
+}
+
+// ── FEEDBACK ──
+let _fbRating = 0;
+
+function setRating(v) {
+  _fbRating = v;
+  document.querySelectorAll('#fb-stars .fb-star').forEach(s => {
+    s.classList.toggle('on', parseInt(s.dataset.v) <= v);
+  });
+}
+
+async function submitFeedback(ev) {
+  ev.preventDefault();
+  const msgEl = document.getElementById('fb-message');
+  const errEl = document.getElementById('fb-error');
+  const message = msgEl.value.trim();
+
+  if (!message) {
+    errEl.textContent = 'Please write a short message before sending.';
+    msgEl.focus();
+    return;
+  }
+  errEl.textContent = '';
+
+  const payload = {
+    rating: _fbRating || null,
+    category: document.getElementById('fb-category').value,
+    message,
+    email: document.getElementById('fb-email').value.trim() || null,
+    page: 'scheduler_v9',
+    submitted_at: new Date().toISOString(),
+  };
+
+  const btn = document.getElementById('fb-submit-btn');
+  btn.disabled = true; btn.textContent = 'Sending…';
+
+  // Always keep a local copy so nothing is lost if the helper program is offline.
+  let savedLocally = false;
+  try {
+    const prior = JSON.parse(localStorage.getItem('feedback_log') || '[]');
+    prior.push(payload);
+    localStorage.setItem('feedback_log', JSON.stringify(prior));
+    savedLocally = true;
+  } catch (e) { /* storage may be unavailable; ignore */ }
+
+  // Best-effort: send to the helper program if it's running. Optional endpoint.
+  let sentToServer = false;
+  try {
+    const res = await fetch('http://localhost:8000/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    sentToServer = res.ok;
+  } catch (e) { /* offline or no endpoint — local copy still kept */ }
+
+  const note = sentToServer
+    ? 'Your note was sent to the helper program. Thanks — we read every one.'
+    : savedLocally
+      ? 'Saved on this device. (The helper program wasn\'t reachable, so it wasn\'t sent — but nothing was lost.)'
+      : 'Thanks! We couldn\'t save it this time, but we appreciate you taking the time.';
+
+  document.getElementById('fb-thanks-msg').textContent = note;
+  document.getElementById('feedback-form').style.display = 'none';
+  document.getElementById('fb-thanks').style.display = 'block';
+  btn.disabled = false; btn.textContent = 'Send feedback';
+}
+
+function resetFeedback() {
+  document.getElementById('feedback-form').reset();
+  setRating(0);
+  document.getElementById('fb-error').textContent = '';
+  document.getElementById('fb-thanks').style.display = 'none';
+  document.getElementById('feedback-form').style.display = 'block';
+}
+
+// ── ONBOARDING STEPS ──
+let currentStep = 0;
+const TOTAL_STEPS = 5;
+
+function goStep(n) {
+  document.getElementById('panel-' + currentStep).classList.remove('active');
+  document.getElementById('nav-' + currentStep).classList.remove('active');
+  if (n > currentStep) document.getElementById('nav-' + currentStep).classList.add('done');
+  currentStep = n;
+  document.getElementById('panel-' + currentStep).classList.add('active');
+  const navEl = document.getElementById('nav-' + currentStep);
+  navEl.classList.add('active');
+  navEl.classList.remove('done');
+  document.getElementById('ob-progress').style.width = ((currentStep + 1) / TOTAL_STEPS * 100) + '%';
+}
+
+// ── PROBLEM-SIZE INDICATOR ──
+// Keep small: the quantum method's cost grows fast with problem size.
+const QAOA_MAX_VARS = 20;
+
+function countJobs() {
+  return ['web_api','batch','memory','io_heavy'].reduce((s, k) => s + (parseInt(document.getElementById(k).value) || 0), 0);
+}
+
+function updateVarIndicator() {
+  const J = countJobs();
+  const S = parseInt(document.getElementById('servers').value);
+  const total = J * S + S;
+  const pct = Math.min((total / QAOA_MAX_VARS) * 100, 100);
+
+  const countEl = document.getElementById('var-count');
+  const fillEl  = document.getElementById('var-bar-fill');
+
+  countEl.textContent    = J > 0 ? `${J} jobs × ${S} servers` : '—';
+  fillEl.style.width     = pct + '%';
+  fillEl.style.background = pct > 75 ? 'var(--orange)' : 'var(--green)';
+  countEl.style.color    = pct > 100 ? 'var(--red)' : pct > 75 ? 'var(--orange)' : 'var(--text)';
+}
+
+['web_api','batch','memory','io_heavy','servers'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    // A manual change means the values no longer match the chosen preset.
+    if (_activePreset !== null) { _activePreset = null; _highlightPreset(null); }
+    updateVarIndicator();
+  });
+});
+
+// ── PRESETS ──
+// Each is a hand-picked scenario that highlights a different difference
+// between the normal computer and the quantum method. All stay under
+// QAOA_MAX_VARS so the quantum side can actually run.
+const PRESETS = {
+  // Tiny & comfy: both methods tie, quantum finishes quickly.
+  match:   { web_api: 2, batch: 1, memory: 0, io_heavy: 0, servers: 2 },
+  // Mixed heavy jobs on few servers: tests packing quality.
+  squeeze: { web_api: 1, batch: 1, memory: 1, io_heavy: 1, servers: 2 },
+  // Near the size limit: shows the quantum solve-time blow up.
+  stress:  { web_api: 5, batch: 0, memory: 0, io_heavy: 0, servers: 3 },
+};
+
+// Page defaults (match the initial input values in the markup).
+const JOB_DEFAULTS = { web_api: 3, batch: 1, memory: 0, io_heavy: 0 };
+const SERVERS_DEFAULT = 3;
+
+// Which preset is currently active (null = none / custom).
+let _activePreset = null;
+
+// Toggle the highlight ring on the matching preset button (null clears all).
+function _highlightPreset(name) {
+  document.querySelectorAll('.preset-btn').forEach(b => {
+    b.classList.toggle('selected', b.dataset.preset === name);
+  });
+}
+
+// Reset every control back to its default and clear any results/selection.
+function resetDefaults() {
+  _activePreset = null;
+  Object.entries(JOB_DEFAULTS).forEach(([k, v]) => { document.getElementById(k).value = v; });
+  document.getElementById('servers').value = SERVERS_DEFAULT;
+  document.getElementById('sval').textContent = SERVERS_DEFAULT;
+  document.getElementById('error-container').innerHTML = '';
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('empty').style.display = '';
+  _highlightPreset(null);
+  updateVarIndicator();
+}
+
+function applyPreset(name) {
+  const p = PRESETS[name];
+  if (!p) return;
+  // Click the already-selected preset again → deselect and return to defaults.
+  if (_activePreset === name) {
+    resetDefaults();
+    return;
+  }
+  _activePreset = name;
+  ['web_api','batch','memory','io_heavy'].forEach(k => {
+    document.getElementById(k).value = p[k];
+  });
+  document.getElementById('servers').value = p.servers;
+  document.getElementById('sval').textContent = p.servers;
+  // Reset the view back to the empty state so old results don't look current.
+  document.getElementById('error-container').innerHTML = '';
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('empty').style.display = '';
+  _highlightPreset(name);
+  updateVarIndicator();
+}
+
+// ── formatting helpers ──
+function fmtTime(sec) {
+  if (sec === null || sec === undefined) return 'n/a';
+  if (sec < 1)  return (sec * 1000).toFixed(sec * 1000 < 10 ? 1 : 0) + ' ms';
+  if (sec < 60) return sec.toFixed(2) + ' s';
+  return (sec / 60).toFixed(1) + ' min';
+}
+function fmtMinutes(sec) {
+  if (sec === null || sec === undefined) return '—';
+  return (sec / 60).toFixed(1) + ' min';
+}
+function fmtPossibilities(qubits, approx) {
+  if (qubits === null || qubits === undefined) return 'n/a';
+  let sci = '';
+  if (approx !== null && approx !== undefined && isFinite(approx)) {
+    sci = ' ≈ ' + approx.toExponential(1).replace('e+', ' × 10^').replace('e-', ' × 10^-');
+  }
+  return '2^' + qubits + sci;
+}
+
+// ── RUN ──
+async function run() {
+  const btn = document.getElementById('run-btn');
+  btn.classList.add('loading'); btn.disabled = true;
+  document.getElementById('error-container').innerHTML = '';
+
+  const profile_counts = {};
+  ['web_api','batch','memory','io_heavy'].forEach(k => {
+    const v = parseInt(document.getElementById(k).value) || 0;
+    if (v > 0) profile_counts[k] = v;
+  });
+  const servers = parseInt(document.getElementById('servers').value);
+
+  if (!Object.keys(profile_counts).length) {
+    document.getElementById('error-container').innerHTML =
+      '<div class="error-box">Pick at least one job first.</div>';
+    btn.classList.remove('loading'); btn.disabled = false;
+    return;
+  }
+
+  // Keep it small so the quantum method doesn't take forever.
+  const J = Object.values(profile_counts).reduce((a, b) => a + b, 0);
+  if (J * servers + servers > QAOA_MAX_VARS) {
+    document.getElementById('error-container').innerHTML =
+      `<div class="error-box">That's a bit big for the quantum method (${J * servers + servers} pieces, limit ${QAOA_MAX_VARS}).<div class="err-detail">Try fewer jobs or fewer servers. With ${servers} server(s), keep it to about ${Math.floor((QAOA_MAX_VARS - servers) / servers)} jobs.</div></div>`;
+    btn.classList.remove('loading'); btn.disabled = false;
+    return;
+  }
+
+  // alpha2 exposes /schedule (classical) and /schedule_quantum separately —
+  // there is no single /compare_scaling endpoint. We call both, time each in
+  // the browser to get a "time to find the answer", and assemble the shape
+  // render() expects. Sequential calls keep each timing clean (no CPU contention).
+  const body = JSON.stringify({ profile_counts, servers });
+  const opts = { method: 'POST', headers: {'Content-Type': 'application/json'}, body };
+
+  async function callTimed(path) {
+    const t0 = performance.now();
+    const res = await fetch('http://localhost:8000' + path, opts);
+    const elapsed = (performance.now() - t0) / 1000;  // seconds
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      throw new Error((e.detail && (e.detail.message || JSON.stringify(e.detail))) || ('HTTP ' + res.status));
+    }
+    return { data: await res.json(), elapsed };
+  }
+
+  try {
+    const cls = await callTimed('/schedule');          // classical greedy
+    const qnt = await callTimed('/schedule_quantum');  // QAOA / MILP solver
+
+    const cStats = cls.data.stats || {};
+    const qStats = qnt.data.stats || {};
+    const cServers = cStats.active_servers ?? null;
+    const qServers = qnt.data.active_servers ?? qStats.active_servers ?? null;
+
+    // Problem size: alpha2 builds J*S assignment vars + S server-active vars.
+    const qpVars = J * servers + servers;
+
+    // alpha2's "quantum" route falls back to a classical solver when no real
+    // quantum/MILP path is available; surface which engine actually ran.
+    const qSolver = qnt.data.solver || 'unknown';
+    const quantumRan = qSolver !== 'classical_greedy' && qSolver !== 'classical_fallback';
+
+    render({
+      problem: {
+        jobs: J, servers,
+        qp_vars: qpVars,
+        qubits: qpVars,                          // binary decision variables alpha2 creates
+        state_space_approx: Math.pow(2, qpVars),
+      },
+      classical: {
+        solver: cls.data.solver,
+        active_servers: cServers,
+        makespan: cStats.makespan,
+        solve_time_sec: cls.elapsed,
+      },
+      quantum: {
+        available: true,
+        solver: qSolver,
+        active_servers: qServers,
+        makespan: qStats.makespan,
+        solve_time_sec: qnt.elapsed,
+        note: quantumRan ? null : 'ran a classical fallback — no quantum solver was available',
+      },
+      comparison: {
+        servers_delta: (cServers != null && qServers != null) ? (cServers - qServers) : null,
+        slowdown_factor: (cls.elapsed > 0) ? (qnt.elapsed / cls.elapsed) : null,
+        verdict: '',
+      },
+    });
+  } catch(e) {
+    document.getElementById('error-container').innerHTML =
+      `<div class="error-box">${e.message || 'Could not reach the helper program. Is it running on localhost:8000?'}</div>`;
+  } finally {
+    btn.classList.remove('loading'); btn.disabled = false;
+    updateVarIndicator();
+  }
+}
+
+// ── RENDER ──
+function render(data) {
+  const p   = data.problem    || {};
+  const c   = data.classical  || {};
+  const q   = data.quantum    || {};
+  const cmp = data.comparison || {};
+
+  // Normal computer column
+  document.getElementById('c-servers').textContent = c.active_servers ?? '—';
+  document.getElementById('c-make').innerHTML      = fmtMinutes(c.makespan) + ' <small>min</small>';
+  document.getElementById('c-solve').textContent   = fmtTime(c.solve_time_sec);
+
+  // Quantum column (handle "not available" gracefully)
+  const qServersCell = document.getElementById('q-servers-cell');
+  const qMakeCell    = document.getElementById('q-make-cell');
+  const qSolveCell   = document.getElementById('q-solve-cell');
+
+  if (q.available === false) {
+    qServersCell.innerHTML = `<div class="cmp-na">Not available<br>${q.reason || 'The quantum method could not run.'}</div>`;
+    qMakeCell.innerHTML    = '';
+    qSolveCell.innerHTML   = '';
+  } else {
+    qServersCell.innerHTML = `<span class="cmp-val q">${q.active_servers ?? '—'}</span>`;
+    qMakeCell.innerHTML    = `<span class="cmp-val q">${fmtMinutes(q.makespan)} <small>min</small></span>`;
+    qSolveCell.innerHTML   = `<span class="cmp-val q">${fmtTime(q.solve_time_sec)}</span>`;
+  }
+
+  // Scaling panel
+  document.getElementById('sc-size').textContent   = `${p.jobs ?? '—'} × ${p.servers ?? '—'}`;
+  document.getElementById('sc-vars').textContent   = p.qp_vars ?? '—';
+  document.getElementById('sc-qubits').textContent = p.qubits ?? 'n/a';
+  document.getElementById('sc-space').textContent  = fmtPossibilities(p.qubits, p.state_space_approx);
+
+  // Bottom line
+  const verdictEl = document.getElementById('verdict-text');
+  if (q.available === false) {
+    verdictEl.innerHTML =
+      'The normal computer packed the jobs onto <strong>' + (c.active_servers ?? '?') +
+      ' server(s)</strong>. The quantum method could not run this time — install Qiskit to try it.';
+  } else if (cmp.slowdown_factor != null) {
+    const slow = Math.round(cmp.slowdown_factor).toLocaleString();
+    const delta = cmp.servers_delta ?? 0;
+    const sameOrFewer = delta === 0
+      ? 'landed on the <strong>same number of servers</strong>'
+      : (delta > 0
+          ? 'used <strong>' + delta + ' fewer server(s)</strong>'
+          : 'used <strong>' + (-delta) + ' more server(s)</strong>');
+    verdictEl.innerHTML =
+      'Both methods ' + sameOrFewer + ', but the quantum method took about ' +
+      '<strong>' + slow + '× longer</strong> to get there. ' +
+      'At small sizes the normal computer wins easily — the quantum approach only ' +
+      'becomes interesting on problems far too big to run here.';
+    if (q.note) verdictEl.innerHTML += ' <em>(Note: the quantum side ' + q.note + '.)</em>';
+  } else {
+    verdictEl.textContent = cmp.verdict || 'Comparison complete.';
+  }
+
+  document.getElementById('empty').style.display   = 'none';
+  document.getElementById('results').style.display = 'block';
+}
+
+// ── WALKTHROUGH (demo) ──
+const DEMO_STEPS = [
+  {
+    id: 'intro', target: null, pos: 'center',
+    badge: '● WALKTHROUGH  //  STEP 1 OF 9',
+    title: 'A quick walkthrough',
+    body: 'You have <strong>jobs</strong> (work to run) and <strong>servers</strong> (machines to run them on). The goal: pack the jobs onto as few servers as possible — and compare how a normal computer and a quantum method each handle it. Let\'s look at every control.'
+  },
+  {
+    id: 'sidebar',
+    target: () => document.querySelector('.sidebar'),
+    pos: 'right', pad: 0,
+    badge: 'THE PANEL  //  STEP 2 OF 9',
+    title: 'The control panel',
+    body: 'Everything you set lives here: how many of each job, how many servers, and the compare button. Results show up on the right.'
+  },
+  {
+    id: 'web_api',
+    target: () => document.getElementById('web_api').closest('.job-row'),
+    pos: 'right', pad: 4,
+    badge: 'A LIGHT JOB  //  STEP 3 OF 9',
+    title: 'web_api — small and quick',
+    body: 'Tiny and fast: 1 core, 1 GB, 5 seconds. You usually have lots of these, and many can share one server. <em>Setting 3 for you ↓</em>',
+    action: () => { document.getElementById('web_api').value = 3; updateVarIndicator(); }
+  },
+  {
+    id: 'batch',
+    target: () => document.getElementById('batch').closest('.job-row'),
+    pos: 'right', pad: 4,
+    badge: 'A HEAVY JOB  //  STEP 4 OF 9',
+    title: 'batch — big and slow',
+    body: 'The heavy one: 2 cores, 2 GB, 5 minutes. A single batch job nearly fills a whole server by itself, so it doesn\'t leave much room for others. <em>Setting 1 for you ↓</em>',
+    action: () => { document.getElementById('batch').value = 1; updateVarIndicator(); }
+  },
+  {
+    id: 'servers',
+    target: () => document.querySelector('.servers-control'),
+    pos: 'right', pad: 4,
+    badge: 'YOUR SERVERS  //  STEP 5 OF 9',
+    title: 'How many servers',
+    body: 'More servers give the tool more room, but idle servers waste money. The tool aims to leave as few sitting idle as possible. <em>Setting 3 for you ↓</em>',
+    action: () => { document.getElementById('servers').value = 3; document.getElementById('sval').textContent = '3'; updateVarIndicator(); }
+  },
+  {
+    id: 'vars',
+    target: () => document.querySelector('.var-box'),
+    pos: 'right', pad: 4,
+    badge: 'PROBLEM SIZE  //  STEP 6 OF 9',
+    title: 'Keep it small',
+    body: 'This shows how big the puzzle is. The normal computer doesn\'t care, but the quantum method slows down fast as it grows. <span style="color:var(--green)">Green = comfortable</span>. If it turns orange, ease off the job or server count.'
+  },
+  {
+    id: 'run',
+    target: () => document.getElementById('run-btn'),
+    pos: 'right', pad: 6,
+    badge: 'COMPARE  //  STEP 7 OF 9',
+    title: 'Compare the two methods',
+    body: 'This runs both solvers on your setup and lays the results side by side. <em>Click “Run a sample” to see what a result looks like — no helper program needed.</em>'
+  },
+  {
+    id: 'compare',
+    target: () => document.querySelector('#results .cmp-grid'),
+    pos: 'above', pad: 8,
+    badge: 'THE RESULTS  //  STEP 8 OF 9',
+    title: 'Reading the side-by-side',
+    body: '<strong>Servers used</strong> — fewer is better. <strong>Total time to finish</strong> — how long the jobs take to run. <strong>Time to find the answer</strong> — the headline: notice how much longer the quantum column takes.'
+  },
+  {
+    id: 'scaling',
+    target: () => document.querySelector('#results .scale-panel'),
+    pos: 'above', pad: 8,
+    badge: 'THE CATCH  //  STEP 9 OF 9',
+    title: 'Why quantum is slower',
+    body: 'The puzzle turns into “qubits”, and qubits turn into a huge number of possibilities. That number is the whole reason the quantum method drags here — and it doubles with every extra qubit. Now try it for real!',
+    isFinal: true
+  }
+];
+
+let _demoStep = 0;
+
+function startDemo() {
+  _demoStep = 0;
+  goScheduler();
+  switchTab('scheduler');
+  ['web_api','batch','memory','io_heavy'].forEach(id => { document.getElementById(id).value = 0; });
+  document.getElementById('servers').value = 3;
+  document.getElementById('sval').textContent = '3';
+  document.getElementById('empty').style.display = '';
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('error-container').innerHTML = '';
+  _activePreset = null; _highlightPreset(null);
+  updateVarIndicator();
+  _demoRender();
+}
+
+function exitDemo() {
+  document.getElementById('demo-blocker').classList.remove('active');
+  document.getElementById('demo-spotlight').classList.remove('active');
+  document.getElementById('demo-bubble').classList.remove('active');
+}
+
+function _demoComplete() {
+  document.getElementById('demo-spotlight').classList.remove('active');
+
+  const bubble = document.getElementById('demo-bubble');
+  bubble.classList.remove('active');
+  void bubble.offsetWidth;
+
+  bubble.innerHTML = `
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:0.2em;text-transform:uppercase;color:var(--green);margin-bottom:14px;">
+      ✓ TOUR COMPLETE  //  ALL 9 STEPS
+    </div>
+    <div style="font-size:20px;font-weight:600;letter-spacing:-0.03em;margin-bottom:10px;">
+      You're all set.
+    </div>
+    <div style="font-size:13px;color:#444;line-height:1.75;margin-bottom:24px;">
+      You've seen every control: the job types, the server slider, the problem-size meter, and how to read the side-by-side. Now run a real comparison — or push the size up and watch the quantum method struggle.
+    </div>
+    <button onclick="exitDemo();goScheduler();"
+      style="width:100%;background:var(--accent);color:white;border:none;padding:15px;
+             font-family:'IBM Plex Sans',sans-serif;font-size:14px;font-weight:600;
+             cursor:pointer;letter-spacing:0.04em;margin-bottom:10px;transition:opacity 0.15s;"
+      onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">
+      Open the tool →
+    </button>
+    <button onclick="exitDemo();"
+      style="width:100%;background:none;border:1px solid var(--border);padding:10px;
+             font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);
+             cursor:pointer;transition:color 0.15s,border-color 0.15s;"
+      onmouseover="this.style.color='var(--text)';this.style.borderColor='var(--text)'"
+      onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">
+      ✕ Close &amp; stay here
+    </button>
+  `;
+
+  bubble.classList.add('active');
+  requestAnimationFrame(() => {
+    bubble.style.left = Math.round(window.innerWidth  / 2 - 170) + 'px';
+    bubble.style.top  = Math.round(window.innerHeight / 2 - bubble.offsetHeight / 2) + 'px';
+  });
+}
+
+function demoNext() {
+  const step = DEMO_STEPS[_demoStep];
+  if (step.isFinal) { _demoComplete(); return; }
+
+  if (step.id === 'run') {
+    const nb = document.getElementById('demo-nxt');
+    nb.disabled = true; nb.textContent = '⚡ Comparing...';
+    _demoMockRun(() => { _demoStep++; _demoRender(); });
+    return;
+  }
+
+  if (step.action) step.action();
+  _demoStep++;
+  setTimeout(_demoRender, step.action ? 180 : 0);
+}
+
+function _demoRender() {
+  const step   = DEMO_STEPS[_demoStep];
+  const bubble = document.getElementById('demo-bubble');
+  const spot   = document.getElementById('demo-spotlight');
+
+  document.getElementById('demo-blocker').classList.add('active');
+
+  const dotsEl = document.getElementById('demo-dots');
+  dotsEl.innerHTML = '';
+  DEMO_STEPS.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'demo-dot' + (i < _demoStep ? ' done' : i === _demoStep ? ' active' : '');
+    dotsEl.appendChild(d);
+  });
+
+  document.getElementById('demo-badge').textContent = step.badge;
+  document.getElementById('demo-ttl').textContent   = step.title;
+  document.getElementById('demo-bdy').innerHTML     = step.body;
+  document.getElementById('demo-of').textContent    = (_demoStep + 1) + ' / ' + DEMO_STEPS.length;
+
+  const nb = document.getElementById('demo-nxt');
+  nb.disabled    = false;
+  nb.className   = 'demo-nxt' + (step.isFinal ? ' finish' : '');
+  nb.textContent = step.isFinal ? 'Finish tour ✓' : step.id === 'run' ? 'Run a sample →' : 'Next →';
+
+  bubble.classList.remove('active');
+  void bubble.offsetWidth;
+  bubble.classList.add('active');
+
+  if (!step.target) {
+    spot.classList.remove('active');
+    bubble.style.left = Math.round(window.innerWidth  / 2 - 170) + 'px';
+    bubble.style.top  = Math.round(window.innerHeight / 2 - 145) + 'px';
+    return;
+  }
+
+  const el = step.target();
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  setTimeout(() => {
+    const r   = el.getBoundingClientRect();
+    const pad = step.pad || 0;
+    spot.style.top    = (r.top    - pad) + 'px';
+    spot.style.left   = (r.left   - pad) + 'px';
+    spot.style.width  = (r.width  + pad * 2) + 'px';
+    spot.style.height = (r.height + pad * 2) + 'px';
+    spot.classList.add('active');
+    _demoBubblePos(r, step.pos, pad, bubble);
+  }, 110);
+}
+
+function _demoBubblePos(r, pos, pad, bubble) {
+  const BW = 340, GAP = 16;
+  const bh = bubble.offsetHeight || 295;
+  let top, left;
+  switch (pos) {
+    case 'right':
+      left = r.right + pad + GAP;
+      top  = r.top + r.height / 2 - bh / 2;
+      if (left + BW > window.innerWidth - 8) left = r.left - pad - BW - GAP;
+      break;
+    case 'left':
+      left = r.left - pad - BW - GAP;
+      top  = r.top + r.height / 2 - bh / 2;
+      if (left < 8) left = r.right + pad + GAP;
+      break;
+    case 'above':
+      left = r.left + r.width / 2 - BW / 2;
+      top  = r.top - pad - bh - GAP;
+      if (top < 8) top = r.bottom + pad + GAP;
+      break;
+    default:
+      left = r.left + r.width / 2 - BW / 2;
+      top  = r.bottom + pad + GAP;
+      if (top + bh > window.innerHeight - 8) top = r.top - pad - bh - GAP;
+  }
+  bubble.style.left = Math.max(8, Math.min(left, window.innerWidth  - BW - 8)) + 'px';
+  bubble.style.top  = Math.max(8, Math.min(top,  window.innerHeight - bh - 8)) + 'px';
+}
+
+function _demoMockRun(cb) {
+  const runBtn = document.getElementById('run-btn');
+  runBtn.classList.add('loading'); runBtn.disabled = true;
+  setTimeout(() => {
+    runBtn.classList.remove('loading'); runBtn.disabled = false;
+    // Sample comparison data — same shape that run() assembles for render().
+    render({
+      problem: { jobs: 4, servers: 3, qp_vars: 15, qubits: 36, state_space_approx: 6.9e10 },
+      classical: { solver: 'best_fit_decreasing', active_servers: 2, makespan: 300, solve_time_sec: 0.0004 },
+      quantum:   { available: true, solver: 'qaoa_legacy', active_servers: 2, makespan: 300, solve_time_sec: 11.8, qubits: 36 },
+      comparison: { servers_delta: 0, slowdown_factor: 29500, verdict: '' }
+    });
+    if (cb) cb();
+  }, 2000);
+}
+</script>
+</body>
+</html>
