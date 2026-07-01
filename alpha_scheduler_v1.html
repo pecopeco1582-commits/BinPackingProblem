@@ -159,6 +159,34 @@
   .run-btn:disabled { background: var(--muted); cursor: not-allowed; }
   .spinner { width: 14px; height: 14px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.6s linear infinite; display: none; }
   .run-btn.loading .spinner { display: block; }
+  /* ── Run timer + caution (shown while a comparison is in flight) ── */
+  .run-status { margin-top: 12px; border: 1px solid var(--orange); background: #fff7f0; padding: 12px 14px; animation: fadeIn 0.2s ease; }
+  .run-timer-row { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+  .run-timer-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  .run-timer { font-family: 'IBM Plex Mono', monospace; font-size: 22px; font-weight: 600; color: var(--orange); }
+  .run-timer.near-limit { color: var(--red); }
+
+  /* ── Caution popup anchored to the Problem-size box (shown only when not green) ── */
+  .size-caution { position: relative; margin-top: 10px; border: 1px solid var(--red); background: #fff0f0; color: var(--red); font-size: 11px; line-height: 1.55; padding: 11px 13px; animation: fadeIn 0.2s ease; }
+  .size-caution-arrow { position: absolute; top: -6px; left: 20px; width: 10px; height: 10px; background: #fff0f0; border-left: 1px solid var(--red); border-top: 1px solid var(--red); transform: rotate(45deg); }
+  .size-caution strong { color: var(--red); }
+
+  /* ── "This takes time" popup shown on Execute ── */
+  .run-warn-overlay { position: fixed; inset: 0; z-index: 9500; background: rgba(0,0,0,0.55); display: none; align-items: center; justify-content: center; padding: 24px; }
+  .run-warn-overlay.active { display: flex; animation: fadeIn 0.18s ease; }
+  .run-warn-modal { background: var(--white); border: 2px solid var(--text); box-shadow: 6px 6px 0 rgba(0,0,0,0.15); max-width: 430px; width: 100%; padding: 28px 30px; }
+  .run-warn-badge { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--orange); margin-bottom: 12px; }
+  .run-warn-title { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 12px; }
+  .run-warn-body { font-size: 13px; color: #444; line-height: 1.7; margin-bottom: 24px; }
+  .run-warn-body strong { color: var(--text); }
+  .run-warn-actions { display: flex; flex-direction: column; gap: 10px; }
+  .run-warn-go { background: var(--text); color: #fff; border: none; padding: 13px; font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; letter-spacing: 0.04em; transition: background 0.15s; }
+  .run-warn-go:hover { background: var(--accent); }
+  .run-warn-skip { background: none; border: 1px solid var(--border); color: var(--muted); padding: 11px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; cursor: pointer; transition: color 0.15s, border-color 0.15s; }
+  .run-warn-skip:hover { color: var(--text); border-color: var(--text); }
+  .run-warn-cancel { display: block; margin: 14px auto 0; background: none; border: none; color: var(--muted); font-family: 'IBM Plex Mono', monospace; font-size: 11px; cursor: pointer; text-decoration: underline; }
+  .run-warn-cancel:hover { color: var(--red); }
+
   .var-box { margin-top: 12px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; padding: 10px; background: var(--bg); border: 1px solid var(--border); }
   .var-box-desc { font-size: 10px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
 
@@ -209,6 +237,20 @@
   .scale-val { font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 600; color: var(--accent); }
   .scale-note { margin-top: 16px; font-size: 12px; color: #444; line-height: 1.7; background: var(--bg); border-left: 3px solid var(--accent); padding: 12px 14px; }
 
+  /* ── Short note beside the result cards ── */
+  .result-note { font-size: 13px; color: #444; line-height: 1.6; background: var(--bg); border: 1px solid var(--border); border-left: 3px solid var(--accent); padding: 12px 16px; margin-bottom: 20px; }
+  .result-note strong { color: var(--text); }
+
+  /* ── "What does this result mean?" cards ── */
+  .meaning-card { background: var(--bg); border: 1px solid var(--border); padding: 16px 18px; margin-bottom: 12px; }
+  .meaning-card:last-child { margin-bottom: 0; }
+  .meaning-head { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+  .meaning-tag { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; color: white; padding: 3px 9px; }
+  .meaning-tag.beginner { background: var(--green); }
+  .meaning-tag.technical { background: var(--accent); }
+  .meaning-body { font-size: 13px; color: #444; line-height: 1.75; }
+  .meaning-body strong { color: var(--text); }
+
   /* ── Verdict ── */
   .verdict { background: var(--text); color: var(--white); padding: 20px 24px; margin-bottom: 24px; }
   .verdict .vlabel { font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: #bbb; margin-bottom: 8px; }
@@ -236,6 +278,11 @@
   .feedback-wrap h2 { font-size: 30px; font-weight: 600; letter-spacing: -0.03em; margin-bottom: 10px; }
   .feedback-lead { font-size: 14px; color: var(--muted); line-height: 1.7; margin-bottom: 32px; }
   .feedback-card { background: var(--white); border: 1px solid var(--border); padding: 32px 34px; }
+  .fb-embed { padding: 8px; }
+  .fb-embed iframe { display: block; width: 100%; border: 0; }
+  .fb-fallback { font-size: 12px; color: var(--muted); text-align: center; padding: 12px 8px 6px; }
+  .fb-fallback a { color: var(--accent); text-decoration: none; }
+  .fb-fallback a:hover { text-decoration: underline; }
   .fb-field { margin-bottom: 24px; }
   .fb-label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
   .fb-label .req { color: var(--accent); }
@@ -452,7 +499,7 @@
             <div class="jdesc">A job that reads and writes lots of data. Hungry for storage and network.</div>
           </div>
         </div>
-        <div class="ob-highlight"><strong>Tip:</strong> Start with 3 <strong>web_api</strong> + 1 <strong>batch</strong> on 3 servers. That's the default, and it's small enough for the quantum method to finish quickly.</div>
+        <div class="ob-highlight"><strong>Tip:</strong> Start with one of the <strong>Quick presets</strong> (like ② One heavy job or ③ Two servers). They're deliberately small so the quantum method actually finishes — bigger problems time out.</div>
         <div class="ob-nav-btns">
           <button class="btn-secondary" onclick="goStep(0)">← Back</button>
           <button class="btn-primary" onclick="goStep(2)">Next →</button>
@@ -504,13 +551,13 @@
             <span class="dim"># Install what's needed (first time only)</span><br>
             pip install fastapi uvicorn scipy qiskit-optimization<br><br>
             <span class="dim"># Start it</span><br>
-            python -m uvicorn <span class="key">alpha2</span>:<span class="val">app</span> --reload
+            python -m uvicorn <span class="key">alpha4</span>:<span class="val">app</span> --reload
           </div>
           <p>When you see <span class="mono-tag">Uvicorn running on http://0.0.0.0:8000</span>, leave that window open.</p>
         </div>
         <div class="ob-card">
           <h3><span class="num">2</span> Open this page</h3>
-          <p>Open <span class="mono-tag">scheduler_v9.html</span> in Chrome or Firefox. The page itself needs no server — it just talks to the helper program over <span class="mono-tag">localhost:8000</span>.</p>
+          <p>Open <span class="mono-tag">alpha_scheduler_v1.html</span> in Chrome or Firefox. The page itself needs no server — it just talks to the helper program over <span class="mono-tag">localhost:8000</span>.</p>
         </div>
         <div class="ob-card">
           <h3><span class="num">3</span> Choose your jobs</h3>
@@ -521,7 +568,7 @@
           <p>Drag the <strong>servers</strong> slider. A little extra room often lets the tool find a tidier packing.</p>
         </div>
         <div class="ob-card">
-          <h3><span class="num">5</span> Click “Compare the two methods”</h3>
+          <h3><span class="num">5</span> Click “Execute simulation”</h3>
           <p>The tool runs both solvers on your setup. The quantum one can take a few seconds. The results appear on the right.</p>
         </div>
         <div class="ob-nav-btns">
@@ -535,7 +582,7 @@
       <div class="ob-panel" id="panel-4">
         <div class="ob-step-badge">Step 5 of 5</div>
         <h2>Reading the results</h2>
-        <p class="ob-lead">You get a side-by-side table, a short explanation of why the quantum method slows down, and a one-line takeaway.</p>
+        <p class="ob-lead">You get a side-by-side table, a “What does this result mean?” section that explains the outcome in plain words and in technical terms, and a one-line takeaway.</p>
         <div class="ob-card">
           <h3><span class="num">A</span> Servers used</h3>
           <p>How many servers each method needed. Fewer is better — it means the jobs were packed more tightly. Often both methods tie on small problems.</p>
@@ -549,8 +596,8 @@
           <p>How long each method itself took to think. This is the headline: the normal computer answers in a flash, while the quantum method takes much longer — and the gap grows fast as the problem gets bigger.</p>
         </div>
         <div class="ob-card">
-          <h3><span class="num">D</span> Why the quantum method slows down</h3>
-          <p>A panel shows the problem size turning into qubits, and qubits turning into a huge number of possibilities. That number is the whole reason the quantum method is slow here.</p>
+          <h3><span class="num">D</span> What does this result mean?</h3>
+          <p>Below the table, a short section explains the outcome two ways: a plain-words take for the big picture, and a technical view with the qubits and possibilities behind the quantum method's slowdown. Read whichever suits you.</p>
         </div>
         <div class="ob-highlight" style="margin-top:24px;">
           <strong>▶ Try the walkthrough:</strong> a guided click-through of every control, ending with a sample comparison — no helper program needed. The tool opens when you're done.
@@ -589,13 +636,13 @@
       <div class="section-label">Quick presets</div>
       <div class="preset-list">
         <button class="preset-btn" data-preset="match" onclick="applyPreset('match')">
-          <div class="pname"><span>① Easy match</span><span class="pconf">3 jobs · 2 servers</span></div>
+          <div class="pname"><span>① Share a server</span><span class="pconf">2 jobs · 1 server · ~2s</span></div>
         </button>
         <button class="preset-btn" data-preset="squeeze" onclick="applyPreset('squeeze')">
-          <div class="pname"><span>② Tight squeeze</span><span class="pconf">4 jobs · 2 servers</span></div>
+          <div class="pname"><span>② One heavy job</span><span class="pconf">1 job · 1 server · ~2s</span></div>
         </button>
         <button class="preset-btn" data-preset="stress" onclick="applyPreset('stress')">
-          <div class="pname"><span>③ Stress quantum</span><span class="pconf">5 jobs · 3 servers</span></div>
+          <div class="pname"><span>③ Two servers</span><span class="pconf">1 job · 2 servers · ~15s</span></div>
         </button>
       </div>
 
@@ -604,11 +651,11 @@
       <div class="section-label">Pick your jobs</div>
       <div class="job-row">
         <div><div class="job-name">web_api</div><div class="job-spec">1 core · 1 GB · 5 sec</div></div>
-        <input type="number" id="web_api" value="3" min="0" max="20">
+        <input type="number" id="web_api" value="0" min="0" max="20">
       </div>
       <div class="job-row">
         <div><div class="job-name">batch</div><div class="job-spec">2 cores · 2 GB · 5 min</div></div>
-        <input type="number" id="batch" value="1" min="0" max="20">
+        <input type="number" id="batch" value="0" min="0" max="20">
       </div>
       <div class="job-row">
         <div><div class="job-name">memory</div><div class="job-spec">1 core · 3 GB · 1 min</div></div>
@@ -625,15 +672,22 @@
         <div class="section-label">How many servers</div>
         <div class="server-desc">Each: 2 cores · 4 GB · 40 GB · 10 Gbps.</div>
         <div class="servers-row">
-          <input type="range" id="servers" min="1" max="10" value="3" oninput="document.getElementById('sval').textContent=this.value; updateVarIndicator()">
-          <span class="range-num" id="sval">3</span>
+          <input type="range" id="servers" min="1" max="3" value="1" oninput="document.getElementById('sval').textContent=this.value; updateVarIndicator()">
+          <span class="range-num" id="sval">1</span>
         </div>
       </div>
 
-      <button class="run-btn" id="run-btn" onclick="run()">
+      <button class="run-btn" id="run-btn" onclick="executeSim()">
         <div class="spinner"></div>
-        <span>Compare the two methods</span>
+        <span>Execute simulation</span>
       </button>
+
+      <div class="run-status" id="run-status" style="display:none;">
+        <div class="run-timer-row">
+          <span class="run-timer-label">Running…</span>
+          <span class="run-timer" id="run-timer">0s</span>
+        </div>
+      </div>
 
       <button class="reset-btn" id="reset-btn" onclick="resetDefaults()">↺ Clear &amp; reset to defaults</button>
 
@@ -643,7 +697,12 @@
         <div id="var-bar-track" style="height:4px;background:var(--border);margin-top:6px;">
           <div id="var-bar-fill" style="height:100%;width:0%;background:var(--green);transition:width 0.3s;"></div>
         </div>
-        <div class="var-box-desc">Keep it green — bigger gets slow.</div>
+        <div class="var-box-desc">Green = the quantum side finishes (≤8 qubits). Bigger times out.</div>
+      </div>
+
+      <div class="size-caution" id="size-caution" style="display:none;">
+        <div class="size-caution-arrow"></div>
+        <span id="size-caution-text"></span>
       </div>
 
       <div id="error-container"></div>
@@ -661,13 +720,18 @@
 
       <div class="empty-state" id="empty">
         <div class="big">◎</div>
-        <div>Pick some jobs and click “Compare the two methods”.</div>
+        <div>Pick some jobs and click “Execute simulation”.</div>
       </div>
 
       <div id="results">
 
         <div class="cmp-title">Two ways to solve the same puzzle</div>
         <div class="cmp-sub">The same jobs, packed by each method.</div>
+
+        <div class="result-note">
+          Each method packed the <strong>same jobs</strong> — read the rows side by side.
+          Fewer <strong>servers used</strong> and a shorter <strong>time to find the answer</strong> are better.
+        </div>
 
         <div class="cmp-grid">
           <div class="cmp-head">
@@ -701,39 +765,18 @@
           </div>
         </div>
 
-        <div class="scale-panel" id="scale-panel">
-          <div class="cmp-title">Why the quantum method slows down</div>
-          <div class="cmp-sub">A quantum computer works in “qubits”. Every extra qubit <strong>doubles</strong> the possibilities it has to sift through.</div>
+        <div class="scale-panel meaning-panel" id="meaning-panel">
+          <div class="cmp-title">What does this result mean?</div>
+          <div class="cmp-sub">The same answer, explained two ways — pick whichever fits you.</div>
 
-          <div class="scale-row">
-            <div class="scale-name">Jobs × servers
-              <small>The choices you set on the left.</small>
-            </div>
-            <div class="scale-val" id="sc-size">—</div>
-          </div>
-          <div class="scale-row">
-            <div class="scale-name">Pieces of the puzzle
-              <small>One yes/no decision per job-and-server pair.</small>
-            </div>
-            <div class="scale-val" id="sc-vars">—</div>
-          </div>
-          <div class="scale-row">
-            <div class="scale-name">Qubits needed
-              <small>What the quantum computer has to set up.</small>
-            </div>
-            <div class="scale-val" id="sc-qubits">—</div>
-          </div>
-          <div class="scale-row">
-            <div class="scale-name">Possibilities to explore
-              <small>Two raised to the number of qubits.</small>
-            </div>
-            <div class="scale-val" id="sc-space">—</div>
+          <div class="meaning-card">
+            <div class="meaning-head"><span class="meaning-tag beginner">In plain words</span> For beginners</div>
+            <p class="meaning-body" id="meaning-beginner">—</p>
           </div>
 
-          <div class="scale-note">
-            The normal computer just solves the math directly, so it stays fast. The
-            quantum method has to deal with all those possibilities, which is why it
-            takes so much longer here.
+          <div class="meaning-card">
+            <div class="meaning-head"><span class="meaning-tag technical">The technical view</span> For the curious</div>
+            <p class="meaning-body" id="meaning-technical">—</p>
           </div>
         </div>
 
@@ -774,7 +817,7 @@
         <div class="gh-repo-name">BinPackingProblem</div>
         <div class="gh-repo-desc">
           Everything that runs this: the helper program
-          (<span style="font-family:'IBM Plex Mono',monospace;font-size:11px;">alpha2.py</span>),
+          (<span style="font-family:'IBM Plex Mono',monospace;font-size:11px;">alpha4.py</span>),
           this page, and earlier versions.
         </div>
         <a class="about-gh-link" href="https://github.com/pecopeco1582-commits/BinPackingProblem" target="_blank" rel="noopener">
@@ -833,56 +876,23 @@
       <div class="feedback-kicker">We're listening</div>
       <h2>Send feedback</h2>
       <p class="feedback-lead">
-        Found something confusing, hit a bug, or have an idea? Tell us. This is a
-        teaching tool, so notes on what did or didn't make sense are especially useful.
+        Found something confusing, hit a bug, or have an idea? Tell us through the form
+        below. This is a teaching tool, so notes on what did or didn't make sense are
+        especially useful.
       </p>
 
-      <form class="feedback-card" id="feedback-form" onsubmit="submitFeedback(event)">
-        <div class="fb-field">
-          <label class="fb-label">How was it?</label>
-          <div class="fb-hint">Tap a star — 1 is rough, 5 is great.</div>
-          <div class="fb-stars" id="fb-stars">
-            <span class="fb-star" data-v="1" onclick="setRating(1)">★</span>
-            <span class="fb-star" data-v="2" onclick="setRating(2)">★</span>
-            <span class="fb-star" data-v="3" onclick="setRating(3)">★</span>
-            <span class="fb-star" data-v="4" onclick="setRating(4)">★</span>
-            <span class="fb-star" data-v="5" onclick="setRating(5)">★</span>
-          </div>
-        </div>
-
-        <div class="fb-field">
-          <label class="fb-label" for="fb-category">What's this about?</label>
-          <select class="fb-select" id="fb-category">
-            <option value="general">General feedback</option>
-            <option value="bug">Something's broken (bug)</option>
-            <option value="confusing">Something was confusing</option>
-            <option value="idea">An idea or request</option>
-            <option value="quantum">The quantum / QAOA part</option>
-          </select>
-        </div>
-
-        <div class="fb-field">
-          <label class="fb-label" for="fb-message">Your message <span class="req">*</span></label>
-          <textarea class="fb-textarea" id="fb-message" placeholder="What's on your mind?"></textarea>
-        </div>
-
-        <div class="fb-field">
-          <label class="fb-label" for="fb-email">Email <span class="fb-hint" style="display:inline;margin:0;">(optional — only if you want a reply)</span></label>
-          <input class="fb-input" id="fb-email" type="email" placeholder="you@example.com" autocomplete="email">
-        </div>
-
-        <div class="fb-submit-row">
-          <button class="fb-submit" type="submit" id="fb-submit-btn">Send feedback</button>
-          <span class="fb-note">Stays on your machine — never sent anywhere without a helper program.</span>
-        </div>
-        <div class="fb-error" id="fb-error"></div>
-      </form>
-
-      <div class="fb-thanks" id="fb-thanks" style="display:none;">
-        <div class="ft-badge">✓ Got it</div>
-        <h3>Thanks for the feedback.</h3>
-        <p id="fb-thanks-msg">Your note has been recorded. We read every one — it genuinely helps make this clearer.</p>
-        <button class="ft-again" onclick="resetFeedback()">← Send another</button>
+      <div class="feedback-card fb-embed">
+        <iframe
+          src="https://docs.google.com/forms/d/e/1FAIpQLSfo-0f5QXVAqe5F5CVVrF5Scm4XuIjr3q60g5D7jcUR8t4qyg/viewform?embedded=true"
+          width="100%" height="900" frameborder="0" marginheight="0" marginwidth="0"
+          title="Feedback form">
+          Loading the feedback form…
+        </iframe>
+        <p class="fb-fallback">
+          Form not loading?
+          <a href="https://docs.google.com/forms/d/e/1FAIpQLSfo-0f5QXVAqe5F5CVVrF5Scm4XuIjr3q60g5D7jcUR8t4qyg/viewform"
+             target="_blank" rel="noopener">Open it in a new tab →</a>
+        </p>
       </div>
     </div>
   </div><!-- /tab-content-feedback -->
@@ -901,6 +911,25 @@
     <button class="demo-nxt" id="demo-nxt" onclick="demoNext()">Next →</button>
     <button class="demo-xbtn" onclick="exitDemo()">✕ exit tour</button>
     <span class="demo-of" id="demo-of"></span>
+  </div>
+</div>
+
+<!-- ── "This takes time" popup (shown on Execute) ── -->
+<div id="run-warn-overlay" class="run-warn-overlay">
+  <div class="run-warn-modal">
+    <div class="run-warn-badge">● Heads up</div>
+    <div class="run-warn-title">This can take a while</div>
+    <div class="run-warn-body">
+      The quantum (QAOA) step runs a real quantum-circuit simulation, which is slow.
+      A comparison can take up to <strong>60 seconds</strong> before the quantum side
+      finishes or stops automatically — the normal computer answers instantly. Please
+      be patient while it runs.
+    </div>
+    <div class="run-warn-actions">
+      <button class="run-warn-go" onclick="confirmRun(false)">Run it →</button>
+      <button class="run-warn-skip" onclick="confirmRun(true)">Run &amp; don't show this again this session</button>
+    </div>
+    <button class="run-warn-cancel" onclick="closeRunWarn()">Cancel</button>
   </div>
 </div>
 
@@ -927,79 +956,8 @@ function switchTab(name) {
 }
 
 // ── FEEDBACK ──
-let _fbRating = 0;
-
-function setRating(v) {
-  _fbRating = v;
-  document.querySelectorAll('#fb-stars .fb-star').forEach(s => {
-    s.classList.toggle('on', parseInt(s.dataset.v) <= v);
-  });
-}
-
-async function submitFeedback(ev) {
-  ev.preventDefault();
-  const msgEl = document.getElementById('fb-message');
-  const errEl = document.getElementById('fb-error');
-  const message = msgEl.value.trim();
-
-  if (!message) {
-    errEl.textContent = 'Please write a short message before sending.';
-    msgEl.focus();
-    return;
-  }
-  errEl.textContent = '';
-
-  const payload = {
-    rating: _fbRating || null,
-    category: document.getElementById('fb-category').value,
-    message,
-    email: document.getElementById('fb-email').value.trim() || null,
-    page: 'scheduler_v9',
-    submitted_at: new Date().toISOString(),
-  };
-
-  const btn = document.getElementById('fb-submit-btn');
-  btn.disabled = true; btn.textContent = 'Sending…';
-
-  // Always keep a local copy so nothing is lost if the helper program is offline.
-  let savedLocally = false;
-  try {
-    const prior = JSON.parse(localStorage.getItem('feedback_log') || '[]');
-    prior.push(payload);
-    localStorage.setItem('feedback_log', JSON.stringify(prior));
-    savedLocally = true;
-  } catch (e) { /* storage may be unavailable; ignore */ }
-
-  // Best-effort: send to the helper program if it's running. Optional endpoint.
-  let sentToServer = false;
-  try {
-    const res = await fetch('http://localhost:8000/feedback', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    sentToServer = res.ok;
-  } catch (e) { /* offline or no endpoint — local copy still kept */ }
-
-  const note = sentToServer
-    ? 'Your note was sent to the helper program. Thanks — we read every one.'
-    : savedLocally
-      ? 'Saved on this device. (The helper program wasn\'t reachable, so it wasn\'t sent — but nothing was lost.)'
-      : 'Thanks! We couldn\'t save it this time, but we appreciate you taking the time.';
-
-  document.getElementById('fb-thanks-msg').textContent = note;
-  document.getElementById('feedback-form').style.display = 'none';
-  document.getElementById('fb-thanks').style.display = 'block';
-  btn.disabled = false; btn.textContent = 'Send feedback';
-}
-
-function resetFeedback() {
-  document.getElementById('feedback-form').reset();
-  setRating(0);
-  document.getElementById('fb-error').textContent = '';
-  document.getElementById('fb-thanks').style.display = 'none';
-  document.getElementById('feedback-form').style.display = 'block';
-}
+// The feedback tab now embeds a Google Form directly (iframe), so there is no
+// in-page form to wire up here.
 
 // ── ONBOARDING STEPS ──
 let currentStep = 0;
@@ -1018,26 +976,49 @@ function goStep(n) {
 }
 
 // ── PROBLEM-SIZE INDICATOR ──
-// Keep small: the quantum method's cost grows fast with problem size.
-const QAOA_MAX_VARS = 20;
+// The real QAOA solver only finishes for small problems. We estimate the QUBO
+// qubit count for the reduced (cores-only) model — verified against measurements:
+// estQubits ≈ servers * (jobs + 3). Green ≤8 actually finishes (~1–15 s); 9–20
+// times out at 60 s; >20 the backend rejects as "too large".
+const QAOA_SOLVE_QUBITS  = 8;    // green: real QAOA finishes
+const QAOA_ENCODE_QUBITS = 20;   // red above this: backend can't even encode it
 
 function countJobs() {
   return ['web_api','batch','memory','io_heavy'].reduce((s, k) => s + (parseInt(document.getElementById(k).value) || 0), 0);
 }
+function estQubits(J, S) { return J > 0 ? S * (J + 3) : 0; }
 
 function updateVarIndicator() {
   const J = countJobs();
-  const S = parseInt(document.getElementById('servers').value);
-  const total = J * S + S;
-  const pct = Math.min((total / QAOA_MAX_VARS) * 100, 100);
+  const S = parseInt(document.getElementById('servers').value) || 1;
+  const q = estQubits(J, S);
+  const pct = Math.min((q / QAOA_ENCODE_QUBITS) * 100, 100);
+
+  const zone = q === 0 ? 'empty'
+             : q <= QAOA_SOLVE_QUBITS  ? 'green'
+             : q <= QAOA_ENCODE_QUBITS ? 'orange'
+             : 'red';
+  const colour = zone === 'red' ? 'var(--red)' : zone === 'orange' ? 'var(--orange)' : 'var(--green)';
 
   const countEl = document.getElementById('var-count');
   const fillEl  = document.getElementById('var-bar-fill');
 
-  countEl.textContent    = J > 0 ? `${J} jobs × ${S} servers` : '—';
-  fillEl.style.width     = pct + '%';
-  fillEl.style.background = pct > 75 ? 'var(--orange)' : 'var(--green)';
-  countEl.style.color    = pct > 100 ? 'var(--red)' : pct > 75 ? 'var(--orange)' : 'var(--text)';
+  countEl.textContent     = J > 0 ? `${J} job${J!==1?'s':''} × ${S} server${S!==1?'s':''} · ~${q} qubits` : '—';
+  fillEl.style.width      = pct + '%';
+  fillEl.style.background = colour;
+  countEl.style.color     = zone === 'red' ? 'var(--red)' : zone === 'orange' ? 'var(--orange)' : 'var(--text)';
+
+  // Caution popup on the Problem-size box: only when NOT green.
+  const cautionEl = document.getElementById('size-caution');
+  const cautionTx = document.getElementById('size-caution-text');
+  if (zone === 'orange' || zone === 'red') {
+    cautionEl.style.display = '';
+    cautionTx.innerHTML = zone === 'red'
+      ? `At <strong>~${q} qubits</strong> this is <strong>too large to run</strong> — the quantum solver will report “too large”. Reduce jobs or servers to get back into the green.`
+      : `At <strong>~${q} qubits</strong> the quantum step is too slow: it will <strong>run the full 60 s and then stop</strong> without an answer. Stay at <strong>≤${QAOA_SOLVE_QUBITS} qubits</strong> (green) for a real result.`;
+  } else {
+    cautionEl.style.display = 'none';
+  }
 }
 
 ['web_api','batch','memory','io_heavy','servers'].forEach(id => {
@@ -1049,21 +1030,26 @@ function updateVarIndicator() {
 });
 
 // ── PRESETS ──
-// Each is a hand-picked scenario that highlights a different difference
-// between the normal computer and the quantum method. All stay under
-// QAOA_MAX_VARS so the quantum side can actually run.
+// Every preset is deliberately TINY so the real QAOA solver actually FINISHES
+// within the 60s cap (measured on this machine): ≤8 qubits solves in ~1–15s,
+// whereas 10+ qubits takes ~90s and times out. So these are the combinations
+// where the quantum column shows a genuine result instead of "not available".
+//   match   {web_api:2} x1  -> 5 qubits, ~2s
+//   squeeze {batch:1}   x1  -> 4 qubits, ~1s
+//   stress  {web_api:1} x2  -> 8 qubits, ~15s
 const PRESETS = {
-  // Tiny & comfy: both methods tie, quantum finishes quickly.
-  match:   { web_api: 2, batch: 1, memory: 0, io_heavy: 0, servers: 2 },
-  // Mixed heavy jobs on few servers: tests packing quality.
-  squeeze: { web_api: 1, batch: 1, memory: 1, io_heavy: 1, servers: 2 },
-  // Near the size limit: shows the quantum solve-time blow up.
-  stress:  { web_api: 5, batch: 0, memory: 0, io_heavy: 0, servers: 3 },
+  // Two light jobs share one server.
+  match:   { web_api: 2, batch: 0, memory: 0, io_heavy: 0, servers: 1 },
+  // One heavy (2-core) job fills a whole server.
+  squeeze: { web_api: 0, batch: 1, memory: 0, io_heavy: 0, servers: 1 },
+  // One job, two servers: the solver uses just one — the slowest that still finishes.
+  stress:  { web_api: 1, batch: 0, memory: 0, io_heavy: 0, servers: 2 },
 };
 
-// Page defaults (match the initial input values in the markup).
-const JOB_DEFAULTS = { web_api: 3, batch: 1, memory: 0, io_heavy: 0 };
-const SERVERS_DEFAULT = 3;
+// Page defaults (match the initial input values in the markup): a clean empty
+// slate — 0 of every job, 1 server. "Clear & reset to defaults" returns to this.
+const JOB_DEFAULTS = { web_api: 0, batch: 0, memory: 0, io_heavy: 0 };
+const SERVERS_DEFAULT = 1;
 
 // Which preset is currently active (null = none / custom).
 let _activePreset = null;
@@ -1130,6 +1116,23 @@ function fmtPossibilities(qubits, approx) {
   return '2^' + qubits + sci;
 }
 
+// ── EXECUTE GATE: "this takes time" popup ──
+// Session-scoped: resets on page reload. The "don't show again" button sets it.
+let _hideRunWarn = false;
+
+function executeSim() {
+  if (_hideRunWarn) { run(); return; }
+  document.getElementById('run-warn-overlay').classList.add('active');
+}
+function closeRunWarn() {
+  document.getElementById('run-warn-overlay').classList.remove('active');
+}
+function confirmRun(dontShowAgain) {
+  if (dontShowAgain) _hideRunWarn = true;
+  closeRunWarn();
+  run();
+}
+
 // ── RUN ──
 async function run() {
   const btn = document.getElementById('run-btn');
@@ -1150,16 +1153,17 @@ async function run() {
     return;
   }
 
-  // Keep it small so the quantum method doesn't take forever.
+  // The backend rejects anything over ~20 qubits to encode — block it here with a friendly note.
   const J = Object.values(profile_counts).reduce((a, b) => a + b, 0);
-  if (J * servers + servers > QAOA_MAX_VARS) {
+  const q = estQubits(J, servers);
+  if (q > QAOA_ENCODE_QUBITS) {
     document.getElementById('error-container').innerHTML =
-      `<div class="error-box">That's a bit big for the quantum method (${J * servers + servers} pieces, limit ${QAOA_MAX_VARS}).<div class="err-detail">Try fewer jobs or fewer servers. With ${servers} server(s), keep it to about ${Math.floor((QAOA_MAX_VARS - servers) / servers)} jobs.</div></div>`;
+      `<div class="error-box">That's too big for the quantum method (~${q} qubits, limit ${QAOA_ENCODE_QUBITS}).<div class="err-detail">Try fewer jobs or fewer servers — aim for ${QAOA_SOLVE_QUBITS} qubits or less (green) so the quantum side actually finishes.</div></div>`;
     btn.classList.remove('loading'); btn.disabled = false;
     return;
   }
 
-  // alpha2 exposes /schedule (classical) and /schedule_quantum separately —
+  // alpha4 exposes /schedule (classical) and /schedule_quantum separately —
   // there is no single /compare_scaling endpoint. We call both, time each in
   // the browser to get a "time to find the answer", and assemble the shape
   // render() expects. Sequential calls keep each timing clean (no CPU contention).
@@ -1177,6 +1181,20 @@ async function run() {
     return { data: await res.json(), elapsed };
   }
 
+  // Live timer + caution while the (possibly slow) quantum step runs. The backend
+  // stops the quantum solver after 60s, so the timer matches that ceiling.
+  const _runT0   = performance.now();
+  const statusEl = document.getElementById('run-status');
+  const timerEl  = document.getElementById('run-timer');
+  statusEl.style.display = '';
+  timerEl.textContent = '0s';
+  timerEl.classList.remove('near-limit');
+  const _runTimer = setInterval(() => {
+    const s = Math.floor((performance.now() - _runT0) / 1000);
+    timerEl.textContent = s + 's';
+    timerEl.classList.toggle('near-limit', s >= 45);
+  }, 250);
+
   try {
     const cls = await callTimed('/schedule');          // classical greedy
     const qnt = await callTimed('/schedule_quantum');  // QAOA / MILP solver
@@ -1186,20 +1204,22 @@ async function run() {
     const cServers = cStats.active_servers ?? null;
     const qServers = qnt.data.active_servers ?? qStats.active_servers ?? null;
 
-    // Problem size: alpha2 builds J*S assignment vars + S server-active vars.
+    // Problem size: alpha4 builds J*S assignment vars + S server-active vars.
     const qpVars = J * servers + servers;
 
-    // alpha2's "quantum" route falls back to a classical solver when no real
-    // quantum/MILP path is available; surface which engine actually ran.
+    // alpha4's "quantum" route does NOT fall back to a classical solver. When the
+    // quantum/MILP path can't solve, it returns solver:"failed" (with an "error"
+    // reason and an empty schedule). Treat that as "not available" so we don't
+    // render a bogus 0-server result.
     const qSolver = qnt.data.solver || 'unknown';
-    const quantumRan = qSolver !== 'classical_greedy' && qSolver !== 'classical_fallback';
+    const quantumFailed = qSolver === 'failed';
 
     render({
       problem: {
         jobs: J, servers,
-        qp_vars: qpVars,
-        qubits: qpVars,                          // binary decision variables alpha2 creates
-        state_space_approx: Math.pow(2, qpVars),
+        qp_vars: qpVars,                         // decision vars: one per job-server pair, plus one per server
+        qubits: q,                               // estimated QUBO qubit count (incl. capacity-slack qubits)
+        state_space_approx: Math.pow(2, q),
       },
       classical: {
         solver: cls.data.solver,
@@ -1207,14 +1227,20 @@ async function run() {
         makespan: cStats.makespan,
         solve_time_sec: cls.elapsed,
       },
-      quantum: {
-        available: true,
-        solver: qSolver,
-        active_servers: qServers,
-        makespan: qStats.makespan,
-        solve_time_sec: qnt.elapsed,
-        note: quantumRan ? null : 'ran a classical fallback — no quantum solver was available',
-      },
+      quantum: quantumFailed
+        ? {
+            available: false,
+            solver: qSolver,
+            reason: qnt.data.error || 'The quantum solver failed, and there is no classical fallback.',
+          }
+        : {
+            available: true,
+            solver: qSolver,
+            active_servers: qServers,
+            makespan: qStats.makespan,
+            solve_time_sec: qnt.elapsed,
+            note: null,
+          },
       comparison: {
         servers_delta: (cServers != null && qServers != null) ? (cServers - qServers) : null,
         slowdown_factor: (cls.elapsed > 0) ? (qnt.elapsed / cls.elapsed) : null,
@@ -1225,6 +1251,8 @@ async function run() {
     document.getElementById('error-container').innerHTML =
       `<div class="error-box">${e.message || 'Could not reach the helper program. Is it running on localhost:8000?'}</div>`;
   } finally {
+    clearInterval(_runTimer);
+    statusEl.style.display = 'none';
     btn.classList.remove('loading'); btn.disabled = false;
     updateVarIndicator();
   }
@@ -1257,18 +1285,46 @@ function render(data) {
     qSolveCell.innerHTML   = `<span class="cmp-val q">${fmtTime(q.solve_time_sec)}</span>`;
   }
 
-  // Scaling panel
-  document.getElementById('sc-size').textContent   = `${p.jobs ?? '—'} × ${p.servers ?? '—'}`;
-  document.getElementById('sc-vars').textContent   = p.qp_vars ?? '—';
-  document.getElementById('sc-qubits').textContent = p.qubits ?? 'n/a';
-  document.getElementById('sc-space').textContent  = fmtPossibilities(p.qubits, p.state_space_approx);
+  // "What does this result mean?" — beginner + technical explanations
+  const begEl  = document.getElementById('meaning-beginner');
+  const techEl = document.getElementById('meaning-technical');
+
+  if (q.available === false) {
+    begEl.innerHTML =
+      'A normal computer packed your jobs onto <strong>' + (c.active_servers ?? '?') +
+      ' server(s)</strong> almost instantly. The quantum method couldn\'t run this time, ' +
+      'so there\'s nothing to compare it against — but the normal answer is ready to use.';
+    techEl.innerHTML =
+      'The classical solver finished in <strong>' + fmtTime(c.solve_time_sec) + '</strong>. ' +
+      'The quantum (QAOA) path was unavailable, so no solve time or state-space figure is shown.';
+  } else {
+    const slow = (cmp.slowdown_factor != null)
+      ? Math.round(cmp.slowdown_factor).toLocaleString() + '×'
+      : 'much';
+    begEl.innerHTML =
+      'Both methods packed the same jobs onto <strong>' + (c.active_servers ?? '?') +
+      ' server(s)</strong>. The normal computer found that answer almost instantly, while the ' +
+      'quantum method took noticeably longer to reach a similar result. For an everyday problem this ' +
+      'size, the normal computer is the practical choice — the quantum approach only pulls ahead on ' +
+      'problems far too large to run on a laptop.';
+    techEl.innerHTML =
+      'This schedule used <strong>' + (p.qp_vars ?? '—') + ' binary decision variables</strong> ' +
+      '(one yes/no per job-and-server pairing, plus one per server), mapped to ' +
+      '<strong>' + (p.qubits ?? '—') + ' qubits</strong>. That gives a quantum search space of ' +
+      '<strong>' + fmtPossibilities(p.qubits, p.state_space_approx) + '</strong> — and it doubles with ' +
+      'every extra qubit. The classical solver evaluates the math directly (' + fmtTime(c.solve_time_sec) +
+      '), whereas QAOA must navigate that exponential space (' + fmtTime(q.solve_time_sec) + '), about a ' +
+      '<strong>' + slow + ' difference</strong> here.';
+  }
 
   // Bottom line
   const verdictEl = document.getElementById('verdict-text');
   if (q.available === false) {
     verdictEl.innerHTML =
       'The normal computer packed the jobs onto <strong>' + (c.active_servers ?? '?') +
-      ' server(s)</strong>. The quantum method could not run this time — install Qiskit to try it.';
+      ' server(s)</strong>. The quantum method failed this time' +
+      (q.reason ? ' (' + q.reason + ')' : '') +
+      ', and there is no classical fallback — so the quantum column has nothing to show.';
   } else if (cmp.slowdown_factor != null) {
     const slow = Math.round(cmp.slowdown_factor).toLocaleString();
     const delta = cmp.servers_delta ?? 0;
@@ -1313,8 +1369,8 @@ const DEMO_STEPS = [
     pos: 'right', pad: 4,
     badge: 'A LIGHT JOB  //  STEP 3 OF 9',
     title: 'web_api — small and quick',
-    body: 'Tiny and fast: 1 core, 1 GB, 5 seconds. You usually have lots of these, and many can share one server. <em>Setting 3 for you ↓</em>',
-    action: () => { document.getElementById('web_api').value = 3; updateVarIndicator(); }
+    body: 'Tiny and fast: 1 core, 1 GB, 5 seconds. You usually have lots of these, and many can share one server. For this quick demo we\'ll use just 1 so the quantum side stays fast. <em>Setting 1 ↓</em>',
+    action: () => { document.getElementById('web_api').value = 1; updateVarIndicator(); }
   },
   {
     id: 'batch',
@@ -1322,8 +1378,8 @@ const DEMO_STEPS = [
     pos: 'right', pad: 4,
     badge: 'A HEAVY JOB  //  STEP 4 OF 9',
     title: 'batch — big and slow',
-    body: 'The heavy one: 2 cores, 2 GB, 5 minutes. A single batch job nearly fills a whole server by itself, so it doesn\'t leave much room for others. <em>Setting 1 for you ↓</em>',
-    action: () => { document.getElementById('batch').value = 1; updateVarIndicator(); }
+    body: 'The heavy one: 2 cores, 2 GB, 5 minutes. A single batch job nearly fills a whole server by itself. We\'ll leave it at 0 for this demo to keep the problem small enough for real QAOA. <em>Leaving batch at 0 ↓</em>',
+    action: () => { document.getElementById('batch').value = 0; updateVarIndicator(); }
   },
   {
     id: 'servers',
@@ -1331,8 +1387,8 @@ const DEMO_STEPS = [
     pos: 'right', pad: 4,
     badge: 'YOUR SERVERS  //  STEP 5 OF 9',
     title: 'How many servers',
-    body: 'More servers give the tool more room, but idle servers waste money. The tool aims to leave as few sitting idle as possible. <em>Setting 3 for you ↓</em>',
-    action: () => { document.getElementById('servers').value = 3; document.getElementById('sval').textContent = '3'; updateVarIndicator(); }
+    body: 'More servers give the tool more room, but idle servers waste money. We\'ll use 2 so you can watch the quantum method pick just one. <em>Setting 2 ↓</em>',
+    action: () => { document.getElementById('servers').value = 2; document.getElementById('sval').textContent = '2'; updateVarIndicator(); }
   },
   {
     id: 'vars',
@@ -1346,8 +1402,8 @@ const DEMO_STEPS = [
     id: 'run',
     target: () => document.getElementById('run-btn'),
     pos: 'right', pad: 6,
-    badge: 'COMPARE  //  STEP 7 OF 9',
-    title: 'Compare the two methods',
+    badge: 'EXECUTE  //  STEP 7 OF 9',
+    title: 'Execute simulation',
     body: 'This runs both solvers on your setup and lays the results side by side. <em>Click “Run a sample” to see what a result looks like — no helper program needed.</em>'
   },
   {
@@ -1360,11 +1416,11 @@ const DEMO_STEPS = [
   },
   {
     id: 'scaling',
-    target: () => document.querySelector('#results .scale-panel'),
+    target: () => document.querySelector('#results .meaning-panel'),
     pos: 'above', pad: 8,
-    badge: 'THE CATCH  //  STEP 9 OF 9',
-    title: 'Why quantum is slower',
-    body: 'The puzzle turns into “qubits”, and qubits turn into a huge number of possibilities. That number is the whole reason the quantum method drags here — and it doubles with every extra qubit. Now try it for real!',
+    badge: 'WHAT IT MEANS  //  STEP 9 OF 9',
+    title: 'What does this result mean?',
+    body: 'The same answer, explained two ways: a <strong>plain-words</strong> take for the big picture, and a <strong>technical</strong> one with the qubits and possibilities behind the slowdown. Read whichever fits you — then try it for real!',
     isFinal: true
   }
 ];
@@ -1376,8 +1432,8 @@ function startDemo() {
   goScheduler();
   switchTab('scheduler');
   ['web_api','batch','memory','io_heavy'].forEach(id => { document.getElementById(id).value = 0; });
-  document.getElementById('servers').value = 3;
-  document.getElementById('sval').textContent = '3';
+  document.getElementById('servers').value = 1;
+  document.getElementById('sval').textContent = '1';
   document.getElementById('empty').style.display = '';
   document.getElementById('results').style.display = 'none';
   document.getElementById('error-container').innerHTML = '';
@@ -1535,12 +1591,13 @@ function _demoMockRun(cb) {
   runBtn.classList.add('loading'); runBtn.disabled = true;
   setTimeout(() => {
     runBtn.classList.remove('loading'); runBtn.disabled = false;
-    // Sample comparison data — same shape that run() assembles for render().
+    // Sample comparison data — same shape run() assembles, sized to the demo's
+    // solvable config (1 web_api on 2 servers ≈ 8 qubits): quantum finishes but slow.
     render({
-      problem: { jobs: 4, servers: 3, qp_vars: 15, qubits: 36, state_space_approx: 6.9e10 },
-      classical: { solver: 'best_fit_decreasing', active_servers: 2, makespan: 300, solve_time_sec: 0.0004 },
-      quantum:   { available: true, solver: 'qaoa_legacy', active_servers: 2, makespan: 300, solve_time_sec: 11.8, qubits: 36 },
-      comparison: { servers_delta: 0, slowdown_factor: 29500, verdict: '' }
+      problem: { jobs: 1, servers: 2, qp_vars: 4, qubits: 8, state_space_approx: 256 },
+      classical: { solver: 'best_fit_decreasing', active_servers: 1, makespan: 5, solve_time_sec: 0.0004 },
+      quantum:   { available: true, solver: 'qaoa', active_servers: 1, makespan: 5, solve_time_sec: 15.2, qubits: 8 },
+      comparison: { servers_delta: 0, slowdown_factor: 38000, verdict: '' }
     });
     if (cb) cb();
   }, 2000);
