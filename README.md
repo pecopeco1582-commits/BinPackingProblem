@@ -2,16 +2,63 @@
 
 A small teaching tool that fits a set of computer jobs onto as few servers as possible, and solves the same puzzle two ways — with an ordinary computer and with a quantum method (QAOA) — so you can compare them.
 
+## Get the code
+
+Either way works — you only need one.
+
+**Option A — download a ZIP (no tools needed):**
+Go to <https://github.com/pecopeco1582-commits/BinPackingProblem>, click the green **Code** button → **Download ZIP**, then unzip it anywhere you like.
+
+**Option B — clone with Git:**
+```bash
+git clone https://github.com/pecopeco1582-commits/BinPackingProblem.git
+cd BinPackingProblem
+```
+
+Everything below assumes you are in the folder that contains `alpha4.py` and `alpha_scheduler_v1.html`. If those files sit in a subfolder, `cd` into it first.
+
 ## Try this first
 
-1. **Just look around (no install):** open `alpha_scheduler_v1.html` in Chrome or Firefox and click **"Take the quick tour"**, then **"Start walkthrough"**. The guided tour and a sample result work entirely offline.
-2. **Run real comparisons (needs the helper program):**
-   ```bash
-   cd "capstone final"
-   pip install fastapi uvicorn scipy qiskit qiskit-optimization qiskit-algorithms qiskit-aer
-   python -m uvicorn alpha4:app --reload
-   ```
-   When you see `Uvicorn running on http://127.0.0.1:8000`, leave that window open, go back to the page, pick some jobs, and click **Execute simulation**.
+### 1. Just look around (no install)
+
+Open `alpha_scheduler_v1.html` in Chrome or Firefox — double-click it, or drag the file into a browser window. The guided tour (**"Take the quick tour"** → **"Start walkthrough"**) and a sample result work entirely offline, with nothing else installed.
+
+### 2. Run real comparisons (needs Python)
+
+**You'll need:** Python 3.10 or newer (3.13 recommended) and a browser. Check your Python with `python --version` (or `python3 --version` on macOS/Linux); if it's missing, get it from <https://www.python.org/downloads/>.
+
+**Set up a virtual environment** so these packages don't touch the rest of your system:
+
+macOS / Linux:
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+Windows (PowerShell):
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
+
+**Install the packages:**
+```bash
+pip install fastapi uvicorn scipy qiskit qiskit-optimization qiskit-algorithms qiskit-aer
+```
+(If the repository includes a `requirements.txt`, `pip install -r requirements.txt` does the same thing.)
+
+**Start the helper program:**
+```bash
+python -m uvicorn alpha4:app --reload
+```
+
+When you see `Uvicorn running on http://127.0.0.1:8000`, leave that window open. Go back to `alpha_scheduler_v1.html` in your browser, pick some jobs, and click **Execute simulation**. Press `Ctrl+C` in the terminal when you're done, and `deactivate` to leave the virtual environment.
+
+**If it doesn't work:**
+- *"Address already in use"* — something else is on port 8000. Run `python -m uvicorn alpha4:app --reload --port 8001` and the page will need to be pointed at that port.
+- *The page loads but Execute simulation fails* — the helper program isn't running, or you closed its window. Confirm <http://localhost:8000/docs> opens in your browser.
+- *`python` not found* — try `python3` (macOS/Linux) or `py` (Windows).
+- *Garbled characters in the terminal on Windows* — run `set PYTHONUTF8=1` (or `$env:PYTHONUTF8=1` in PowerShell) before starting.
 
 ## Who this is for
 
@@ -59,17 +106,17 @@ simulating quantum optimization doesn't scale on a laptop.
 
 This is a teaching tool, so notes on what did or didn't make sense are especially welcome. Use the **Feedback** tab in the page, or open the form directly:
 
-https://docs.google.com/forms/d/e/1FAIpQLSfo-0f5QXVAqe5F5CVVrF5Scm4XuIjr3q60g5D7jcUR8t4qyg/viewform
+<https://docs.google.com/forms/d/e/1FAIpQLSfo-0f5QXVAqe5F5CVVrF5Scm4XuIjr3q60g5D7jcUR8t4qyg/viewform>
 
 ## Technical details
 
-- **Backend:** `alpha4.py` — a FastAPI app exposing `/schedule` (classical), `/schedule_quantum` (real QAOA), and `/schedule_compare` (both). Run with `python -m uvicorn alpha4:app --reload`. Interactive API docs at `http://localhost:8000/docs`.
+- **Backend:** `alpha4.py` — a FastAPI app exposing `/schedule` (classical), `/schedule_quantum` (real QAOA), and `/schedule_compare` (both). Run with `python -m uvicorn alpha4:app --reload`. Interactive API docs at <http://localhost:8000/docs>.
 - **Frontend:** `alpha_scheduler_v1.html` — a single self-contained HTML/CSS/JS file; no build step, no server of its own. It talks to the backend over `localhost:8000`.
 - **Classical solver:** an event-driven online scheduler (`online_scheduler_with_arrivals`); placements are scored for "time to finish" with a concurrent per-server simulation (`simulate_servers`).
 - **Quantum solver:** `solve_binpack_qaoa_web` builds a **reduced (cores-only) QuadraticProgram**, converts it to a QUBO, and runs genuine QAOA via `qiskit-algorithms` on a `StatevectorSampler`, wrapped in a 60-second wall-clock timeout and a 20-qubit guard.
 - **Stack:** Python 3.13 · FastAPI · Uvicorn · SciPy · Qiskit 2.2.3 · qiskit-algorithms 0.4.0 · qiskit-aer · qiskit-optimization 0.7.0.
 - **CLI (no web page):** `python alpha4.py` for an interactive run, or `python alpha4.py --demo-online` for a non-interactive arrival-driven demo. (On Windows, force UTF-8 output if you see encoding errors.)
-- **Source:** https://github.com/pecopeco1582-commits/BinPackingProblem
+- **Source:** <https://github.com/pecopeco1582-commits/BinPackingProblem>
 
 ## Limitations
 
